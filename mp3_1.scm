@@ -58,9 +58,9 @@
    (bval expval?)
    (next-env environment?))
   (extend-env-rec*
-   (proc-names (list-of symbol?))
-   (b-vars (list-of symbol?))
-   (proc-bodies (list-of expression?))
+   (proc-names list?)
+   (b-vars list?)
+   (proc-bodies expression?)
    (next-env environment?)))
 
 
@@ -71,19 +71,20 @@
                  (eopl:error 'apply-env "No binding for ~s" search-sym))
       (extend-env (bvar bval next-env)
                   (if (eqv? search-sym bvar)
-                      bval
+                       bval 
                       (apply-env  search-sym next-env)))
-      (extend-env-rec* (p-names b-vars p-bodies next-env)
+      (extend-env-rec* (procedureNamelist procedureVarList procedureBodyList next-env)
                        (cond 
-                         ((location search-sym p-names)
+                         ((location search-sym procedureNamelist)
                           => (lambda (n)
                                (proc-val
                                 (procedure 
-                                 (list-ref b-vars n)
-                                 (list-ref p-bodies n)
+                                 (list-ref procedureVarList n)
+                                 (list-ref procedureBodyList n)
                                  env))))
                          (else (apply-env search-sym  next-env)))))))
 
+;return location(index) of procedure
 (define location
     (lambda (sym syms)
       (cond
@@ -221,12 +222,12 @@
     (cond
       [(number? exp) exp]
       [(expression? exp)
-       (display "This is debug for value-of expression")
+       ;(display "This is debug for value-of expression")
        (cases expression exp
          (num-exp (number) (num-val number))
          (var-exp (var) (apply-env var env))
          (let-exp (var-list exp1-list exp2) (value-of-let var-list exp1-list exp2 env))
-         (letrec-exp (var-list exp1-list body)(value-of-letrec) )
+         (letrec-exp (var-list exp1-list body)(value-of-letrec ) )
          (proc-exp(var-list exp) (proc-val (procedure var-list exp env)))
          (exp-exp(rator rand-list) (value-of-exp rator rand-list env))
          (newRef-exp (exp) (ref-val (newref exp)))
@@ -235,7 +236,10 @@
          
          (arith-exp(arith-op exp1 exp2) (value-of-arith-exp arith-op exp1 exp2 env))
          (else exp))]
-      [(expval? exp) exp])))
+      [(expval? exp)
+       (cases expval exp
+         (ref-val(ref) exp);(deref ref))
+         (else exp))])))
   
 
 (define value-of-letrec
@@ -267,9 +271,13 @@
 
 (define value-of-exp
   (lambda (rator rand-list env)
-    (let ((proc (expval->proc (value-of rator env)))
-          (arg (value-of-arg rand-list env)))
-      (apply-procedure proc arg))))
+    (let ([rator1 (value-of rator env)])
+      (cases expval rator1
+        (ref-val(ref) (value-of-exp (deref ref) rand-list env))
+        (else(
+              (let ((proc (expval->proc (value-of rator env)))
+                    (arg (value-of-arg rand-list env)))
+                (apply-procedure proc arg))))))))
        
 (define value-of-arg
   (lambda (arg-list env)
@@ -285,7 +293,9 @@
             (let ((v1 (value-of e1 env)))
               (if (null? es)
                   v1
-                  (value-of-begins (car es) (cdr es)))))))
+            ;(if (null? es)
+             ;   (value-of e1 env)
+                (value-of-begins (car es) (cdr es)))))))
       (value-of-begins exp1 exps))))
 
 (define add-env
@@ -323,10 +333,12 @@
 (trace newref)
 (trace setref!)
 (trace add-env)
+(trace apply-env)
 (trace scan&parse)
 (trace value-of-set)
 (trace value-of-exp)
 (trace apply-procedure)
+
 ;(trace the-store)
 ;(display (scan&parse ">(3,+(1,2))"))
 ;(display (scan&parse "let x = 1 in let f = proc (y) +(x, y) in let x = 2 in (f 5)"))
