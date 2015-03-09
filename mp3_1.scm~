@@ -17,7 +17,7 @@
     (expression ("letrec" (arbno identifier "=" expression) "in" expression) letrec-exp)
     (expression ("proc" "(" (arbno identifier) ")" expression) proc-exp)
     (expression ( "(" expression (arbno expression) ")") exp-exp)
-    (expression ("newref" "(" expression ")") newRef-exp)
+    (expression ("newref" "(" expression ")") ref-exp)
     (expression ("set" identifier expression)set-exp)
     (expression ("begin" expression (arbno ";" expression) "end")begin-exp)
     (expression ("if" expression "then" expression "else" expression)if-exp)
@@ -36,10 +36,6 @@
 
 ;=================================Interpreter=====================================
 (define-datatype expval expval?
-  (num-val
-   (value number?))
-  (bool-val
-   (boolean boolean?))
   (proc-val
    (proc proc?))
   (ref-val
@@ -64,24 +60,24 @@
    (next-env environment?)))
 
 (define apply-env
-  (lambda (env search-sym)
-    (cases environment env
-      (empty-env ()
-                 (eopl:error 'apply-env "No binding for ~s" search-sym))
-      (extend-env (bvar bval next-env)
-                  (if (eqv? search-sym bvar)
-                      bval
-                      (apply-env next-env search-sym)))
-      (extend-env-rec* (p-names b-vars p-bodies next-env)
-                       (cond 
-                         ((location search-sym p-names)
-                          => (lambda (n)
-                               (proc-val
-                                (procedure 
-                                 (list-ref b-vars n)
-                                 (list-ref p-bodies n)
-                                 env))))
-                         (else (apply-env next-env search-sym)))))))
+    (lambda (env search-sym)
+      (cases environment env
+        (empty-env ()
+          (eopl:error 'apply-env "No binding for ~s" search-sym))
+        (extend-env (bvar bval next-env)
+	  (if (eqv? search-sym bvar)
+	    bval
+	    (apply-env next-env search-sym)))
+        (extend-env-rec* (p-names b-vars p-bodies next-env)
+          (cond 
+            ((location search-sym p-names)
+             => (lambda (n)
+                  (proc-val
+                    (procedure 
+                      (list-ref b-vars n)
+                      (list-ref p-bodies n)
+                      env))))
+            (else (apply-env next-env search-sym)))))))
 
 (define location
     (lambda (sym syms)
@@ -187,72 +183,21 @@
 
 ;=====================================Value-of========================================
 (define value-of
-  (lambda (exp env)
-    (if (number? exp)
-        exp
-        (cases expression exp
-          (num-exp (number) number)
-          (var-exp (var) (apply-env env var))
-          (arith-exp(arith-op exp1 exp2) (value-of-arith-exp arith-op exp1 exp2 env))
-          (let-exp (var-list exp1-list exp2) (value-of-let var-list exp1-list exp2 env))
-          (set-exp (var value) (setref! var (value-of value env))) 
-          (newRef-exp (exp) (ref-val (newref exp)))
-          (begin-exp (exp1 exp2-list) (value-of-begin exp1 exp2-list env))
-          (else exp)))))
-    
-
-(define value-of-arith-exp
-  (lambda (arith-op exp1 exp2-list env)
-    (if (null? exp2-list)
-        (value-of exp1 env)
-        (cond
-          [(equal? arith-op '+) (value-of-arith-exp arith-op (num-exp (+ (value-of exp1 env) (value-of (car exp2-list) env))) (cdr exp2-list) env)]
-          [(equal? arith-op '-) (value-of-arith-exp arith-op (num-exp (- (value-of exp1 env) (value-of (car exp2-list) env))) (cdr exp2-list) env)]
-          [(equal? arith-op '*) (value-of-arith-exp arith-op (num-exp (* (value-of exp1 env) (value-of (car exp2-list) env))) (cdr exp2-list) env)]
-          [(equal? arith-op '/) (value-of-arith-exp arith-op (num-exp (/ (value-of exp1 env) (value-of (car exp2-list) env))) (cdr exp2-list) env)]
-          [else display "no match"]))))
+  (lambda (exp env) 
+    (cases expression exp
+      (num-exp (number) (num-exp number))
+      (var-exp (var) (apply-env var env))
+      (else exp))))
 
 (define value-of-let
-  (lambda (var-list exp1-list exp2 env)
-     (value-of exp2 (add-env var-list exp1-list env))))
-
-(define value-of-begin
-  (lambda (exp1 exp2-list env)
-    (if (null? exp2-list)
-        (value-of exp1 env)
-        (
-         (value-of exp1 env)
-         (value-of (begin-exp (car exp2-list) (cdr exp2-list) env))
-         ))))
-
-(define add-env
-  (lambda (var-list exp1-list env)
-    (if (null? (cdr var-list))
-        (extend-env (car var-list) (value-of (car exp1-list) env) env)
-        (extend-env (car var-list) (value-of (car exp1-list) env) (add-env (cdr var-list) (cdr exp1-list) env)))))
-
-;==============================Wrap Func=================================
-(define static-interpreter
-  (lambda (exp)
-    (initialize-store!)
-    (value-of (scan&parse exp) (empty-env))))
-
+  (lambda (var exp1 exp2 env)
+          (value-of exp2 (extend-env var (value-of exp1 env) env))))
 
 ;=====================================Test========================================
-(trace static-interpreter)
-(trace value-of)
-(trace value-of-let)
-(trace value-of-arith-exp)
-(trace value-of-begin)
-(trace newref)
-(trace setref!)
-(trace add-env)
-(trace scan&parse)
-;(trace the-store)
 ;(display (scan&parse ">(3,+(1,2))"))
 ;(display (scan&parse "let x = 1 in let f = proc (y) +(x, y) in let x = 2 in (f 5)"))
 ;(display (scan&parse "let x = 1 in let f = proc (y) +(x, y) in let x = 2 in (f 5)"))
 ;(display (scan&parse "letrec ill = proc (x) (ill x) in let f = proc (y) 5 in (f (ill 2))"))
 
-(static-interpreter "let x = newref(1) in begin set x 2;x end")
-;(static-interpreter "let x = 5 y = 3 in begin +(x,y) end")
+
+(display (scan&parse "let x = newref(1) in begin set x 2;x end"))
