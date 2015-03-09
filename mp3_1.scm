@@ -68,7 +68,7 @@
   (lambda (search-sym env)
     (cases environment env
       (empty-env ()
-                 (eopl:error 'apply-env "No binding for ~s" search-sym))
+                 (undefined-exp ))
       (extend-env (bvar bval next-env)
                   (if (eqv? search-sym bvar)
                       bval
@@ -236,6 +236,7 @@
          (begin-exp (exp1 exp2-list) (value-of-begin exp1 exp2-list env))
          
          (arith-exp(arith-op exp1 exp2) (value-of-arith-exp arith-op exp1 exp2 env))
+  
          (else exp))]
       [(expval? exp)
        (cases expval exp
@@ -308,9 +309,12 @@
 (define add-env
   (lambda (var-list exp1-list env)
     (if (null? (cdr var-list))
-        (extend-env (car var-list) (value-of (car exp1-list) env) env)
-        (extend-env (car var-list) (value-of (car exp1-list) env) (add-env (cdr var-list) (cdr exp1-list) env)))))
-
+        (cond 
+          [(expval?(value-of (car exp1-list) env))  (extend-env (car var-list) (value-of (car exp1-list) env) env)]
+          [else env])
+        (cond
+          [(expval?(value-of (car exp1-list) env))  (extend-env (car var-list) (value-of (car exp1-list) env) (add-env (cdr var-list) (cdr exp1-list) env))]
+          [else (add-env (cdr var-list) (cdr exp1-list) env)]))))
 (define apply-procedure
   (lambda (proc1 arg)
     (cases proc proc1
@@ -343,12 +347,18 @@
   (lambda (exp)
     (initialize-store!)
     (let ([result (value-of (scan&parse exp) (empty-env))])
-      (cases expval result
-        (ref-val(ref) (expval->num (deref ref)))
-        (num-val(value) value)
-        (bool-val(bool) bool)
-        (proc-val(proc)  proc)))))
-
+      (cond 
+        [(expval? result)
+         (cases expval result
+           (ref-val(ref) (expval->num (deref ref)))
+           (num-val(value) value)
+           (bool-val(bool) bool)
+           (proc-val(proc)  proc))]
+        [(expression? result)
+         (cases expression result
+           (undefined-exp() 'undefined)
+           (else result))]))))
+        
 
 ;=====================================Test========================================
 (trace static-interpreter)
@@ -383,5 +393,11 @@
 ;(static-interpreter "let f = proc(x) proc(y) +(x,y) in let g= proc(x)proc(y)proc(z) +(x,y,z) in ((f (((g 1)2)3))1)")
 ;(static-interpreter "let f = newref (proc (x y) +(x,y)) in begin set f proc (x y) -(x,y); (f 5 1) end")
 ;(static-interpreter "newref(1)")
-(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (h x) (g x))")
+;(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (h x) (g x))")
 ;(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (g x) (h x))")
+;(static-interpreter "let x = let inc = proc (x) +(1,x) in inc in (x 5)")
+;(static-interpreter "let f = let inc = proc (x) +(1,x) in inc in (f 5)")
+;(static-interpreter "let g = let counter = newref(0) in proc(dummy) begin set counter +(counter,1);counter end in let a = (g 11) in let b = (g 11) in -(a,b)")
+;(static-interpreter"x")
+(static-interpreter "if 5 then 0 else 1")
+;(static-interpreter "let x = undefined in x")
