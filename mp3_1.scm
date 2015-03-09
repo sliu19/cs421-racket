@@ -71,7 +71,7 @@
                  (eopl:error 'apply-env "No binding for ~s" search-sym))
       (extend-env (bvar bval next-env)
                   (if (eqv? search-sym bvar)
-                       bval 
+                      bval
                       (apply-env  search-sym next-env)))
       (extend-env-rec* (procedureNamelist procedureVarList procedureBodyList next-env)
                        (cond 
@@ -230,7 +230,7 @@
          (letrec-exp (var-list exp1-list body)(value-of-letrec ) )
          (proc-exp(var-list exp) (proc-val (procedure var-list exp env)))
          (exp-exp(rator rand-list) (value-of-exp rator rand-list env))
-         (newRef-exp (exp) (ref-val (newref exp)))
+         (newRef-exp (exp) (ref-val (newref (value-of exp env))))
          (set-exp (var value) (value-of-set var value env))
          (begin-exp (exp1 exp2-list) (value-of-begin exp1 exp2-list env))
          
@@ -259,11 +259,17 @@
     (if (null? exp2-list)
         (value-of exp1 env)
         (cond
-          [(equal? arith-op '+) (value-of-arith-exp arith-op (num-exp (+ (expval->num (value-of exp1 env)) (expval->num (value-of (car exp2-list) env)))) (cdr exp2-list) env)]
-          [(equal? arith-op '-) (value-of-arith-exp arith-op (num-exp (- (expval->num (value-of exp1 env)) (expval->num (value-of (car exp2-list) env)))) (cdr exp2-list) env)]
-          [(equal? arith-op '*) (value-of-arith-exp arith-op (num-exp (* (expval->num (value-of exp1 env)) (expval->num (value-of (car exp2-list) env)))) (cdr exp2-list) env)]
-          [(equal? arith-op '/) (value-of-arith-exp arith-op (num-exp (/ (expval->num (value-of exp1 env)) (expval->num (value-of (car exp2-list) env)))) (cdr exp2-list) env)]
+          [(equal? arith-op '+) (value-of-arith-exp arith-op (num-exp (+ (expval->num (autoDerefIfNeed (value-of exp1 env))) (expval->num (autoDerefIfNeed (value-of (car exp2-list) env))))) (cdr exp2-list) env)]
+          [(equal? arith-op '-) (value-of-arith-exp arith-op (num-exp (- (expval->num (autoDerefIfNeed (value-of exp1 env))) (expval->num (autoDerefIfNeed (value-of (car exp2-list) env))))) (cdr exp2-list) env)]
+          [(equal? arith-op '*) (value-of-arith-exp arith-op (num-exp (* (expval->num (autoDerefIfNeed (value-of exp1 env))) (expval->num (autoDerefIfNeed (value-of (car exp2-list) env))))) (cdr exp2-list) env)]
+          [(equal? arith-op '/) (value-of-arith-exp arith-op (num-exp (/ (expval->num (autoDerefIfNeed (value-of exp1 env))) (expval->num (autoDerefIfNeed (value-of (car exp2-list) env))))) (cdr exp2-list) env)]
           [else display "no match"]))))
+
+(define autoDerefIfNeed
+  (lambda (exp)
+    (cases expval exp
+      (ref-val(ref) (deref ref))
+      (else exp))))
 
 (define value-of-let
   (lambda (var-list exp1-list exp2 env)
@@ -273,11 +279,13 @@
   (lambda (rator rand-list env)
     (let ([rator1 (value-of rator env)])
       (cases expval rator1
-        (ref-val(ref) (value-of-exp (deref ref) rand-list env))
-        (else(
-              (let ((proc (expval->proc (value-of rator env)))
+        (ref-val(ref) (let ((proc (expval->proc (deref ref)))
+                            (arg (value-of-arg rand-list env)))
+                        (apply-procedure proc arg)))
+        (else
+              (let ((proc (expval->proc (value-of rator1 env)))
                     (arg (value-of-arg rand-list env)))
-                (apply-procedure proc arg))))))))
+                (apply-procedure proc arg)))))))
        
 (define value-of-arg
   (lambda (arg-list env)
@@ -290,12 +298,14 @@
     (letrec
         ((value-of-begins
           (lambda (e1 es)
-            (let ((v1 (value-of e1 env)))
+            (display "Debug inside value-of-begins e1 es value-of-e1")
+            (display e1)
+            (display es)
+            (value-of e1 env)
+            (let ([v1 (value-of e1 env)])
               (if (null? es)
                   v1
-            ;(if (null? es)
-             ;   (value-of e1 env)
-                (value-of-begins (car es) (cdr es)))))))
+                  (value-of-begins (car es) (cdr es)))))))
       (value-of-begins exp1 exps))))
 
 (define add-env
@@ -338,6 +348,7 @@
 (trace value-of-set)
 (trace value-of-exp)
 (trace apply-procedure)
+(trace autoDerefIfNeed)
 
 ;(trace the-store)
 ;(display (scan&parse ">(3,+(1,2))"))
@@ -350,4 +361,6 @@
 ;(static-interpreter "let x = newref(1) in let f= proc (y) set y 2 in begin (f x); x end")
 ;(static-interpreter "let f=proc(x y) +(x,y) g=proc(x y z) +(x,y,z) in (f (g 1 2 3)1)")
 ;(static-interpreter "let f = proc(x) proc(y) +(x,y) in let g= proc(x)proc(y)proc(z) +(x,y,z) in ((f (((g 1)2)3))1)")
-(static-interpreter "let f = newref (proc (x y) +(x,y)) in begin set f proc (x y) -(x,y); (f 5 1) end")
+;(static-interpreter "let f = newref (proc (x y) +(x,y)) in begin set f proc (x y) -(x,y); (f 5 1) end")
+(static-interpreter "newref(1)")
+(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (h x) (g x))")
