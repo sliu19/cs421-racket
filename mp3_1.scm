@@ -64,7 +64,7 @@
    (next-env environment?)))
 
 (define apply-env
-  (lambda (env search-sym)
+  (lambda (search-sym env)
     (cases environment env
       (empty-env ()
                  (eopl:error 'apply-env "No binding for ~s" search-sym))
@@ -188,18 +188,38 @@
 ;=====================================Value-of========================================
 (define value-of
   (lambda (exp env)
-    (if (number? exp)
-        exp
-        (cases expression exp
-          (num-exp (number) number)
-          (var-exp (var) (apply-env env var))
-          (arith-exp(arith-op exp1 exp2) (value-of-arith-exp arith-op exp1 exp2 env))
-          (let-exp (var-list exp1-list exp2) (value-of-let var-list exp1-list exp2 env))
-          (set-exp (var value) (setref! var (value-of value env))) 
-          (newRef-exp (exp) (ref-val (newref exp)))
-          (begin-exp (exp1 exp2-list) (value-of-begin exp1 exp2-list env))
-          (else exp)))))
-    
+    (cond
+      [(number? exp) exp]
+      [(expression? exp)
+       (cases expression exp
+         (num-exp (number) number)
+         (var-exp (var) (apply-env var env))
+         (let-exp (var-list exp1-list exp2) (value-of-let var-list exp1-list exp2 env))
+         (letrec-exp (var-list exp1-list body)(value-of-letrec) )
+         (arith-exp(arith-op exp1 exp2) (value-of-arith-exp arith-op exp1 exp2 env))
+         
+         (set-exp (var value) (value-of-set var value env))
+         (newRef-exp (exp) (ref-val (newref exp)))
+         (begin-exp (exp1 exp2-list) (value-of-begin exp1 exp2-list env))
+         (else exp))]
+      [(expval? exp)
+       (cases expval exp
+         (num-val(value) value)
+         (bool-val(bool) bool)
+         (proc-val(proc) proc)
+         (ref-val(ref) (deref ref)))])))
+
+(define value-of-letrec
+  (lambda(p-names b-vars p-bodies letrec-body env)
+    (value-of letrec-body
+              (extend-env-rec* p-names b-vars p-bodies env))))
+
+
+(define value-of-set
+  (lambda (var value env)
+    (cases expval (apply-env var env)
+      (ref-val(ref)(setref! ref (value-of value env)))
+      (else (eopl:error"Invalid set")))))
 
 (define value-of-arith-exp
   (lambda (arith-op exp1 exp2-list env)
@@ -217,13 +237,15 @@
      (value-of exp2 (add-env var-list exp1-list env))))
 
 (define value-of-begin
-  (lambda (exp1 exp2-list env)
-    (if (null? exp2-list)
-        (value-of exp1 env)
-        (
-         (value-of exp1 env)
-         (value-of (begin-exp (car exp2-list) (cdr exp2-list) env))
-         ))))
+  (lambda (exp1 exps env)
+    (letrec
+        ((value-of-begins
+          (lambda (e1 es)
+            (let ((v1 (value-of e1 env)))
+              (if (null? es)
+                  v1
+                  (value-of-begins (car es) (cdr es)))))))
+      (value-of-begins exp1 exps))))
 
 (define add-env
   (lambda (var-list exp1-list env)
@@ -231,11 +253,13 @@
         (extend-env (car var-list) (value-of (car exp1-list) env) env)
         (extend-env (car var-list) (value-of (car exp1-list) env) (add-env (cdr var-list) (cdr exp1-list) env)))))
 
+
+
 ;==============================Wrap Func=================================
 (define static-interpreter
   (lambda (exp)
     (initialize-store!)
-    (value-of (scan&parse exp) (empty-env))))
+    (value-of (value-of (scan&parse exp) (empty-env)) (empty-env))))
 
 
 ;=====================================Test========================================
@@ -248,6 +272,7 @@
 (trace setref!)
 (trace add-env)
 (trace scan&parse)
+(trace value-of-set)
 ;(trace the-store)
 ;(display (scan&parse ">(3,+(1,2))"))
 ;(display (scan&parse "let x = 1 in let f = proc (y) +(x, y) in let x = 2 in (f 5)"))
