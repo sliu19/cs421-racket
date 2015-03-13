@@ -6,8 +6,8 @@
     (comment ("%" (arbno (not #\newline))) skip)
     (identifier (letter (arbno (or letter digit))) symbol)
     (number (digit (arbno digit)) number)
-    (arith-op ((or "+" "-" "*" "/")) symbol)
-    (compare-op ((or ">" "<" "=")) symbol)
+    (arith-op ((or (or "-" "+") (or "*" "/"))) symbol)
+    (compare-op ((or ">" "<")) symbol)
     ))
 
 (define q1-grammar
@@ -23,6 +23,7 @@
     (expression ("if" expression "then" expression "else" expression)if-exp)
     (expression (arith-op "(" expression (arbno "," expression) ")")arith-exp)
     (expression (compare-op "(" expression "," expression ")") compare-exp)
+    (expression ("=" "(" expression "," expression ")") compare-equ-exp)
     (expression ("true") true-exp)
     (expression ("false") false-exp)
     (expression ("undefined") undefined-exp)
@@ -59,7 +60,7 @@
    (next-env environment?))
   (extend-env-rec*
    (proc-names list?)
-   (b-vars list?)
+   (proc-vars list?)
    (proc-bodies expression?)
    (next-env environment?)))
 
@@ -196,7 +197,7 @@
     (lambda (v)
       (cases expval v
 	(bool-val (bool) bool)
-	(else (expval-extractor-error 'bool v)))))
+	(else (undefined-exp)))))
 
   (define expval->proc
     (lambda (v)
@@ -227,16 +228,20 @@
        (cases expression exp
          (num-exp (number) (num-val number))
          (var-exp (var) (apply-env var env))
+         (true-exp () (bool-val #t))
+         (false-exp () (bool-val #f))
+         (undefined-exp () exp)
          (let-exp (var-list exp1-list exp2) (value-of-let var-list exp1-list exp2 env))
-         (letrec-exp (var-list exp1-list body)(value-of-letrec ) )
+         (letrec-exp (var-list exp1-list body)(value-of-letrec var-list exp1-list body env) )
          (proc-exp(var-list exp) (proc-val (procedure var-list exp env)))
          (exp-exp(rator rand-list) (value-of-exp rator rand-list env))
          (newRef-exp (exp) (ref-val (newref (value-of exp env))))
          (set-exp (var value) (value-of-set var value env))
          (begin-exp (exp1 exp2-list) (value-of-begin exp1 exp2-list env))
-         
+         (if-exp(exp1 exp2 exp3) (value-of-if exp1 exp2 exp3 env))
          (arith-exp(arith-op exp1 exp2) (value-of-arith-exp arith-op exp1 exp2 env))
-  
+         (compare-exp(compare-op exp1 exp2) (value-of-compare-exp compare-op exp1 exp2 env))
+         (compare-equ-exp(exp1 exp2)(value-of-compare-exp '= exp1 exp2 env))
          (else exp))]
       [(expval? exp)
        (cases expval exp
@@ -245,16 +250,23 @@
   
 
 (define value-of-letrec
-  (lambda(p-names b-vars p-bodies letrec-body env)
-    (value-of letrec-body
-              (extend-env-rec* p-names b-vars p-bodies env))))
+  (lambda(funtionNamesList exp-list body env)
+    (value-of body
+              (extend-env-rec*))))
+
+
 
 
 (define value-of-set
   (lambda (var value env)
-    (cases expval (apply-env var env)
-     (ref-val(ref)(setref! ref (value-of value env)))
-      (else (eopl:error"Invalid set")))))
+    (cond
+      [(expval?(apply-env var env))
+       (cases expval (apply-env var env)
+         (ref-val(ref)(setref! ref (value-of value env)))
+         (else '33))]
+      [else (undefined-exp)])))
+
+
 
 
 (define value-of-arith-exp
@@ -267,6 +279,13 @@
           [(equal? arith-op '*) (value-of-arith-exp arith-op (num-exp (* (expval->num (autoDerefIfNeed (value-of exp1 env))) (expval->num (autoDerefIfNeed (value-of (car exp2-list) env))))) (cdr exp2-list) env)]
           [(equal? arith-op '/) (value-of-arith-exp arith-op (num-exp (/ (expval->num (autoDerefIfNeed (value-of exp1 env))) (expval->num (autoDerefIfNeed (value-of (car exp2-list) env))))) (cdr exp2-list) env)]
           [else display "no match"]))))
+
+(define value-of-compare-exp
+  (lambda (compare-op exp1 exp2 env)
+    (cond
+      [(equal? compare-op '<) (bool-val (< (expval->num (autoDerefIfNeed (value-of exp1 env))) (expval->num (autoDerefIfNeed (value-of exp2 env)))))]
+      [(equal? compare-op '=) (bool-val (= (expval->num (autoDerefIfNeed (value-of exp1 env))) (expval->num (autoDerefIfNeed (value-of exp2 env)))))]
+      [(equal? compare-op '>) (bool-val (> (expval->num (autoDerefIfNeed (value-of exp1 env))) (expval->num (autoDerefIfNeed (value-of exp2 env)))))])))
 
 (define autoDerefIfNeed
   (lambda (exp)
@@ -308,13 +327,27 @@
 
 (define add-env
   (lambda (var-list exp1-list env)
+            (display (value-of (car exp1-list) env) )
     (if (null? (cdr var-list))
-        (cond 
-          [(expval?(value-of (car exp1-list) env))  (extend-env (car var-list) (value-of (car exp1-list) env) env)]
-          [else env])
+
+        (if (expval? (value-of (car exp1-list) env))
+            (extend-env (car var-list) (value-of (car exp1-list) env) env)
+            env)
         (cond
           [(expval?(value-of (car exp1-list) env))  (extend-env (car var-list) (value-of (car exp1-list) env) (add-env (cdr var-list) (cdr exp1-list) env))]
           [else (add-env (cdr var-list) (cdr exp1-list) env)]))))
+
+;;SEE Lecture 7 slide p57
+(define value-of-if
+  (lambda (exp1 exp2 exp3 env)
+    (let ([val1 (value-of exp1 env)])
+      (cond
+        [(expval? (expval->bool val1))
+            (if (expval->bool val1)
+                (value-of exp2 env)
+                (value-of exp3 env))]
+        [else (undefined-exp)]))))
+
 (define apply-procedure
   (lambda (proc1 arg)
     (cases proc proc1
@@ -352,7 +385,10 @@
          (cases expval result
            (ref-val(ref) (expval->num (deref ref)))
            (num-val(value) value)
-           (bool-val(bool) bool)
+           (bool-val(bool) 
+                    (if bool
+                        'true
+                        'false))
            (proc-val(proc)  proc))]
         [(expression? result)
          (cases expression result
@@ -379,6 +415,8 @@
 (trace expval->ref)
 (trace derefArg)
 (trace add-env-proc)
+(trace value-of-if)
+(trace value-of-compare-exp)
 
 ;(trace the-store)
 ;(display (scan&parse ">(3,+(1,2))"))
@@ -399,5 +437,10 @@
 ;(static-interpreter "let f = let inc = proc (x) +(1,x) in inc in (f 5)")
 ;(static-interpreter "let g = let counter = newref(0) in proc(dummy) begin set counter +(counter,1);counter end in let a = (g 11) in let b = (g 11) in -(a,b)")
 ;(static-interpreter"x")
-(static-interpreter "if 5 then 0 else 1")
+;(static-interpreter "if 5 then 0 else 1")
 ;(static-interpreter "let x = undefined in x")
+;(static-interpreter "let x = let y = set x 1 in y in x")
+;(static-interpreter "let x = 5 in = (x, 5)")
+;(static-interpreter "let x = newref(1) in = (x, 1)")
+;(static-interpreter "letrec factorial = proc (x) if =(x,0) then 1 else *(x, (factorial -(x,1))) in (factorial 5)")
+(static-interpreter "letrec x = 1 x = +(x,2) in x")
