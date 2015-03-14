@@ -51,6 +51,7 @@
       (bvar list?)
       (body expression?)
       (env environment?)))
+
   
 (define-datatype environment environment?
   (empty-env)
@@ -61,7 +62,7 @@
   (extend-env-rec*
    (proc-names list?)
    (proc-vars list?)
-   (proc-bodies expression?)
+   (proc-bodies list?)
    (next-env environment?)))
 
 
@@ -76,13 +77,15 @@
                       (apply-env  search-sym next-env)))
       (extend-env-rec* (procedureNamelist procedureVarList procedureBodyList next-env)
                        (cond 
-                         ((location search-sym procedureNamelist)
+                         [(location search-sym procedureNamelist)
                           => (lambda (n)
-                               (proc-val
-                                (procedure 
-                                 (list-ref procedureVarList n)
-                                 (list-ref procedureBodyList n)
-                                 env))))
+                               (if(null?(list-ref procedureVarList n))
+                                  (value-of (list-ref procedureBodyList n) next-env )
+                                  (proc-val
+                                   (procedure 
+                                    (list-ref procedureVarList n)
+                                    (list-ref procedureBodyList n)
+                                    env))))]
                          (else (apply-env search-sym  next-env)))))))
 
 ;return location(index) of procedure
@@ -233,7 +236,7 @@
          (undefined-exp () exp)
          (let-exp (var-list exp1-list exp2) (value-of-let var-list exp1-list exp2 env))
          (letrec-exp (var-list exp1-list body)(value-of-letrec var-list exp1-list body env) )
-         (proc-exp(var-list exp) (proc-val (procedure var-list exp env)))
+         (proc-exp(var-list exp) (proc-val (curry (procedure var-list exp env))))
          (exp-exp(rator rand-list) (value-of-exp rator rand-list env))
          (newRef-exp (exp) (ref-val (newref (value-of exp env))))
          (set-exp (var value) (value-of-set var value env))
@@ -248,11 +251,59 @@
          (ref-val(ref) exp);(deref ref))
          (else exp))])))
   
+(define value-of-proc
+  (lambda (var body env)
+    (lambda (val)
+      (value-of body 
+          (extend-env var val env)))))
 
 (define value-of-letrec
-  (lambda(funtionNamesList exp-list body env)
-    (value-of body
-              (extend-env-rec*))))
+  (lambda(functionNamesList exp-list body env)
+    (let ([recEnv (letrec-getEnvRec functionNamesList exp-list env)]
+          [extendEnv (letrec-getEnv functionNamesList exp-list env)])
+      (value-of body 
+                (getRecEnv recEnv extendEnv)))))
+  
+(define getRecEnv
+  (lambda (revEnv extendEnv)
+    (cases environment revEnv
+      (extend-env-rec* (exp1 exp2 exp3 oldEnv)
+                       (extend-env-rec*
+                        exp1 
+                        exp2
+                        exp3
+                        extendEnv))
+      (else extendEnv))))
+
+(define letrec-getEnv
+  (lambda (functionNamesList exp-list env)
+    (if(null? (cdr exp-list))
+       (cases expression (car exp-list)
+         (proc-exp(var-list exp) env);(extend-env-rec* functionNamesList (list var-list) exp-list env))
+         (else (extend-env (car functionNamesList) (value-of (car exp-list) env) env)))
+       (cases expression (car exp-list)
+         (proc-exp(var-list exp) env)
+         ;(letrec-getEnv (cdr functionNamesList)(cdr exp-list) (extend-env-rec* (list (car functionNamesList)) (list var-list)(list (car exp-list)) env)))
+         (else (letrec-getEnv (cdr functionNamesList) (cdr exp-list) (extend-env (car functionNamesList) (value-of (car exp-list) env) env)))))))
+
+(define letrec-getEnvRec
+  (lambda (functionNamesList exp-list env)
+    (if(null? (cdr exp-list))
+       (cases expression (car exp-list)
+         (proc-exp(var-list exp) (extend-env-rec* functionNamesList (list var-list) exp-list env))
+         (else env));(extend-env (car functionNamesList) (value-of (car exp-list) env) env)))
+       (cases expression (car exp-list)
+         (proc-exp(var-list exp) 
+                  (let ([prevEnv (letrec-getEnvRec (cdr functionNamesList)(cdr exp-list) env)])
+                    (cases environment prevEnv
+                      (extend-env-rec* (nameList varList bodyList env)
+                                       (extend-env-rec*
+                                        (append nameList (list (car functionNamesList)))
+                                        (append varList (list var-list))
+                                        (append bodyList (list (car exp-list)))
+                                        env))
+                      (else env))))
+         (else  env)))));(letrec-getEnv (cdr functionNamesList) (cdr exp-list) (extend-env (car functionNamesList) (value-of (car exp-list) env) env)))))))
 
 
 
@@ -263,7 +314,7 @@
       [(expval?(apply-env var env))
        (cases expval (apply-env var env)
          (ref-val(ref)(setref! ref (value-of value env)))
-         (else '33))]
+         (else '33))];;do nothing
       [else (undefined-exp)])))
 
 
@@ -297,7 +348,7 @@
   (lambda (var-list exp1-list exp2 env)
      (value-of exp2 (add-env var-list exp1-list env))))
 
-(define value-of-exp
+(define value-of-exp 
   (lambda (rator rand-list env)
     (let ((proc (expval->proc (autoDerefIfNeed (value-of rator env))))
           (arg (value-of-arg rand-list env)))
@@ -327,22 +378,22 @@
 
 (define add-env
   (lambda (var-list exp1-list env)
-            (display (value-of (car exp1-list) env) )
-    (if (null? (cdr var-list))
-
-        (if (expval? (value-of (car exp1-list) env))
-            (extend-env (car var-list) (value-of (car exp1-list) env) env)
-            env)
-        (cond
-          [(expval?(value-of (car exp1-list) env))  (extend-env (car var-list) (value-of (car exp1-list) env) (add-env (cdr var-list) (cdr exp1-list) env))]
-          [else (add-env (cdr var-list) (cdr exp1-list) env)]))))
+    ;(display (value-of (car exp1-list) env) )
+    (let ([newVal (value-of (car exp1-list) env)])
+          (if (null? (cdr var-list)) 
+              (if (expval? newVal)
+                  (extend-env (car var-list) newVal env)
+                  env)
+          (cond
+            [(expval? newVal)  (extend-env (car var-list) newVal (add-env (cdr var-list) (cdr exp1-list) env))]
+            [else (add-env (cdr var-list) (cdr exp1-list) env)])))))
 
 ;;SEE Lecture 7 slide p57
 (define value-of-if
   (lambda (exp1 exp2 exp3 env)
     (let ([val1 (value-of exp1 env)])
       (cond
-        [(expval? (expval->bool val1))
+        [(expval? val1)
             (if (expval->bool val1)
                 (value-of exp2 env)
                 (value-of exp3 env))]
@@ -352,9 +403,14 @@
   (lambda (proc1 arg)
     (cases proc proc1
       (procedure (var body saved-env)
-                 (let ((r arg))
-                   (let ((new-env (add-env var r saved-env)))
-                     (value-of body new-env)))))))
+                 ;(display body)
+                 ;(let ((r arg))
+                  ; (let ((new-env (add-env-proc var r saved-env)))
+                   ;  (cases expression body
+                    ;   (proc-exp(var-list exp)
+                     ;           (value-of-exp body arg new-env))
+                      ; (else         
+                        (value-of body) (extend-env var arg saved-env)))))
 
 (define add-env-proc
   (lambda (var-list exp1-list env)
@@ -417,6 +473,11 @@
 (trace add-env-proc)
 (trace value-of-if)
 (trace value-of-compare-exp)
+(trace value-of-letrec)
+(trace letrec-getEnv)
+(trace letrec-getEnvRec)
+(trace getRecEnv)
+
 
 ;(trace the-store)
 ;(display (scan&parse ">(3,+(1,2))"))
@@ -424,23 +485,27 @@
 ;(display (scan&parse "let x = 1 in let f = proc (y) +(x, y) in let x = 2 in (f 5)"))
 ;(display (scan&parse "letrec ill = proc (x) (ill x) in let f = proc (y) 5 in (f (ill 2))"))
 
-;(static-interpreter "let x = newref(1) in begin set x 2;x end")
-;(static-interpreter "let x = let y = newref(1) in begin set y 2;y end in x")
-;(static-interpreter "let x = newref(1) in let f= proc (y) set y 2 in begin (f x); x end")
-;(static-interpreter "let f=proc(x y) +(x,y) g=proc(x y z) +(x,y,z) in (f (g 1 2 3)1)")
-;(static-interpreter "let f = proc(x) proc(y) +(x,y) in let g= proc(x)proc(y)proc(z) +(x,y,z) in ((f (((g 1)2)3))1)")
-;(static-interpreter "let f = newref (proc (x y) +(x,y)) in begin set f proc (x y) -(x,y); (f 5 1) end")
+;(static-interpreter "let x = newref(1) in begin set x 2;x end");2
+;(static-interpreter "let x = let y = newref(1) in begin set y 2;y end in x");2
+;(static-interpreter "let x = newref(1) in let f= proc (y) set y 2 in begin (f x); x end");2
+;(static-interpreter "let f=proc(x y) +(x,y) g=proc(x y z) +(x,y,z) in (f (g 1 2 3)1)");7
+;;;;;;Wrong!
+(static-interpreter "let f = proc(x) proc(y) +(x,y) in let g= proc(x)proc(y)proc(z) +(x,y,z) in ((f (((g 1)2)3))1)");7
+;(static-interpreter "let f = newref (proc (x y) +(x,y)) in begin set f proc (x y) -(x,y); (f 5 1) end");4
 ;(static-interpreter "newref(1)")
-;(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (h x) (g x))")
-;(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (g x) (h x))")
-;(static-interpreter "let x = let inc = proc (x) +(1,x) in inc in (x 5)")
-;(static-interpreter "let f = let inc = proc (x) +(1,x) in inc in (f 5)")
-;(static-interpreter "let g = let counter = newref(0) in proc(dummy) begin set counter +(counter,1);counter end in let a = (g 11) in let b = (g 11) in -(a,b)")
+;(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (h x) (g x))");13
+;(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (g x) (h x))");17
+;(static-interpreter "let x = let inc = proc (x) +(1,x) in inc in (x 5)");6
+;(static-interpreter "let f = let inc = proc (x) +(1,x) in inc in (f 5)");6
+;(static-interpreter "let g = let counter = newref(0) in proc(dummy) begin set counter +(counter,1);counter end in let a = (g 11) in let b = (g 11) in -(a,b)");-1
 ;(static-interpreter"x")
 ;(static-interpreter "if 5 then 0 else 1")
 ;(static-interpreter "let x = undefined in x")
 ;(static-interpreter "let x = let y = set x 1 in y in x")
-;(static-interpreter "let x = 5 in = (x, 5)")
-;(static-interpreter "let x = newref(1) in = (x, 1)")
-;(static-interpreter "letrec factorial = proc (x) if =(x,0) then 1 else *(x, (factorial -(x,1))) in (factorial 5)")
-(static-interpreter "letrec x = 1 x = +(x,2) in x")
+;(static-interpreter "let x = 5 in = (x, 5)");true
+;(static-interpreter "let x = newref(1) in = (x, 1)");true
+;(static-interpreter "letrec factorial = proc (x) if =(x,0) then  1 else *(x, (factorial -(x,1)))in (factorial 5)");120
+;(static-interpreter "letrec x = 1 x = +(x,2) in x");3
+;(static-interpreter "letrec f = proc (x) if =(x , 0) then 1 else *(x, (g -(x, 1))) g = proc (x) if =(x , 0) then 2 else *(x, (f -(x, 1))) in (f 3)");12
+
+;(static-interpreter "let x = 1 in let f = proc (y) +(x,y) in let x= 2 in (f 5)")6
