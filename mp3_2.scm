@@ -36,6 +36,7 @@
   (sllgen:make-string-parser q1-spec q1-grammar))
 
 ;=================================Interpreter=====================================
+;;refered from slides&book
 (define-datatype expval expval?
   (num-val
    (value number?))
@@ -46,11 +47,11 @@
   (ref-val
    (ref reference?)))
 
+;;refered from slides&book
 (define-datatype proc proc?
   (procedure
    (bvar list?)
    (body expression?)))
-
 
 (define-datatype environment environment?
   (empty-env)
@@ -64,7 +65,7 @@
    (proc-bodies list?)
    (next-env environment?)))
 
-
+;;refered from slides&book
 (define apply-env
   (lambda (search-sym env)
     (cases environment env
@@ -87,7 +88,7 @@
                                     ))))]
                          (else (apply-env search-sym  next-env)))))))
 
-
+;;refered from slides&book
 (define location
   (lambda (sym syms)
     (cond
@@ -188,7 +189,7 @@
                  (list n (car sto))
                  (inner-loop (cdr sto) (+ n 1)))))))
       (inner-loop the-store 0))))
-
+;;refered from slides&book
 (define expval->num
   (lambda (v)
     (cases expval v
@@ -200,19 +201,19 @@
     (cases expval v
       (bool-val (bool) bool)
       (else 0))))
-
+;;refered from slides&book
 (define expval->proc
   (lambda (v)
     (cases expval v
       (proc-val (proc) proc)
       (else (expval-extractor-error 'proc v)))))
-
+;;refered from slides&book
 (define expval->ref
   (lambda (v)
     (cases expval v
       (ref-val (ref) ref)
       (else (expval-extractor-error 'reference v)))))
-
+;;refered from slides&book
 (define expval-extractor-error
   (lambda (variant value)
     (eopl:error 'expval-extractors "Looking for a ~s, found ~s"
@@ -480,7 +481,7 @@
 ;(static-interpreter "let x = let y = set x 1 in y in x");undefined
 ;(static-interpreter "let x = 5 in = (x, 5)");true
 ;(static-interpreter "let x = newref(1) in = (x, 1)");true
-(static-interpreter "letrec factorial = proc (x) if =(x,0) then  1 else *(x, (factorial -(x,1)))in (factorial 5)");120
+;(static-interpreter "letrec factorial = proc (x) if =(x,0) then  1 else *(x, (factorial -(x,1)))in (factorial 5)");120
 ;(static-interpreter "letrec x = 1 x = +(x,2) in x");3
 ;(static-interpreter "letrec f = proc (x) if =(x , 0) then 1 else *(x, (g -(x, 1))) g = proc (x) if =(x , 0) then 2 else *(x, (f -(x, 1))) in (f 3)");12
 ;(static-interpreter "let x = 1 in let f = proc (y) +(x,y) in let x= 2 in (f 5)")6

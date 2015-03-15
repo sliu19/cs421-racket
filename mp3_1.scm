@@ -46,12 +46,12 @@
   (ref-val
    (ref reference?)))
 
+;;Refered from slides
 (define-datatype proc proc?
   (procedure
    (bvar list?)
    (body expression?)
    (env environment?)))
-
 
 (define-datatype environment environment?
   (empty-env)
@@ -65,7 +65,7 @@
    (proc-bodies list?)
    (next-env environment?)))
 
-
+;;Refered from slides
 (define apply-env
   (lambda (search-sym env)
     (cases environment env
@@ -88,7 +88,7 @@
                                     env))))]
                          (else (apply-env search-sym  next-env)))))))
 
-
+;;Refered from slides
 (define location
   (lambda (sym syms)
     (cond
@@ -190,6 +190,7 @@
                  (inner-loop (cdr sto) (+ n 1)))))))
       (inner-loop the-store 0))))
 
+;;refered from book
 (define expval->num
   (lambda (v)
     (cases expval v
@@ -202,18 +203,21 @@
       (bool-val (bool) bool)
       (else 0))))
 
+;;refered from book
 (define expval->proc
   (lambda (v)
     (cases expval v
       (proc-val (proc) proc)
       (else (expval-extractor-error 'proc v)))))
 
+;;refered from book
 (define expval->ref
   (lambda (v)
     (cases expval v
       (ref-val (ref) ref)
       (else (expval-extractor-error 'reference v)))))
 
+;;refered from book
 (define expval-extractor-error
   (lambda (variant value)
     (eopl:error 'expval-extractors "Looking for a ~s, found ~s"
