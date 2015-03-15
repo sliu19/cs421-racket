@@ -52,7 +52,8 @@
 (define-datatype proc proc?
   (procedure
    (bvar list?)
-   (body expression?)))
+   (body expression?)
+   (env environment?)))
 
 (define-datatype environment environment?
   (empty-env)
@@ -86,7 +87,7 @@
                                    (procedure 
                                     (list-ref procedureVarList n)
                                     (list-ref procedureBodyList n)
-                                    ))))]
+                                    env))))]
                          (else (apply-env search-sym  next-env)))))))
 
 ;;refered from slides&book
@@ -240,7 +241,7 @@
          (undefined-exp () exp)
          (let-exp (var-list exp1-list exp2) (value-of-let var-list exp1-list exp2 env state))
          (letrec-exp (var-list exp1-list body)(value-of-letrec var-list exp1-list body env state) )
-         (proc-exp(var-list exp) (proc-val (procedure var-list exp)))
+         (proc-exp(var-list exp) (proc-val (procedure var-list exp env)))
          (exp-exp(rator rand-list) (value-of-exp rator rand-list env state))
          (newRef-exp (exp) (ref-val (newref (value-of exp env state ))))
          (set-exp (var value) (value-of-set var value env state))
@@ -401,14 +402,33 @@
 (define apply-procedure
   (lambda (proc1 arg env state)
     (cases proc proc1
-      (procedure (var body)
+      (procedure (var body saved-env)
+                 (set! env (appendEnv env saved-env))
                  (let ((new-env (add-env-proc var arg env state)))
                    (value-of body new-env state))))))
+
+(define appendEnv
+  (lambda (env1 env2)
+    (cases environment env1
+      (empty-env  () env2)
+      (extend-env (var value NextEnv)
+                  (extend-env 
+                    var
+                    value
+                    (appendEnv NextEnv env2)))
+      (extend-env-rec* (exp1 exp2 exp3 NextEnv)
+                       (extend-env-rec*
+                        exp1
+                        exp2
+                        exp3
+                        (appendEnv NextEnv env2)))
+      )))
 
 (define apply-procedure-rec
   (lambda (proc1 arg  env state)
     (cases proc proc1
-      (procedure (var body)
+      (procedure (var body saved-env)
+                 ;;(set! env (appendEnv env saved-env))
                  (let ((new-env (add-env-proc var arg env state)))
                    (cases expression body
                      (proc-exp(var-list exp)
@@ -485,4 +505,4 @@
 ;(dynamic-interpreter "letrec factorial = proc (x) if =(x,0) then  1 else *(x, (factorial -(x,1)))in (factorial 5)");120
 ;(dynamic-interpreter "letrec x = 1 x = +(x,2) in x");3
 ;(dynamic-interpreter "letrec f = proc (x) if =(x , 0) then 1 else *(x, (g -(x, 1))) g = proc (x) if =(x , 0) then 2 else *(x, (f -(x, 1))) in (f 3)");12
-;(dynamic-interpreter "let x = 1 in let f = proc (y) +(x,y) in let x= 2 in (f 5)")6
+(dynamic-interpreter "let x = 1 in let f = proc (y) +(x,y) in let x= 2 in (f 5)");7
