@@ -1,3 +1,4 @@
+;;Teammate with swei7
 #lang eopl
 (require trace/calltrace-lib)
 ;=================================Spec&Grammar=====================================
@@ -416,7 +417,7 @@
 
 
 ;==============================Wrap Func=================================
-(define static-interpreter
+(define dynamic-interpreter
   (lambda (exp)
     (initialize-store!)
     (let ([result (value-of (scan&parse exp) (empty-env) 0)])
@@ -437,7 +438,7 @@
 
 
 ;=====================================Test========================================
-(trace static-interpreter)
+(trace dynamic-interpreter)
 (trace value-of)
 (trace value-of-let)
 (trace value-of-arith-exp)
@@ -463,25 +464,25 @@
 
 
 
-;(static-interpreter "let x = newref(1) in begin set x 2;x end");2
-;(static-interpreter "let x = let y = newref(1) in begin set y 2;y end in x");2
-;(static-interpreter "let x = newref(1) in let f= proc (y) set y 2 in begin (f x); x end");2
-;(static-interpreter "let f=proc(x y) +(x,y) g=proc(x y z) +(x,y,z) in (f (g 1 2 3)1)");7
-;(static-interpreter "let f = proc(x) proc(y) +(x,y) in let g= proc(x)proc(y)proc(z) +(x,y,z) in ((f (((g 1)2)3))1)");7
-;(static-interpreter "let f = newref (proc (x y) +(x,y)) in begin set f proc (x y) -(x,y); (f 5 1) end");4
-;(static-interpreter "newref(1)")
-;(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (h x) (g x))");13
-;(static-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (g x) (h x))");17
-;(static-interpreter "let x = let inc = proc (x) +(1,x) in inc in (x 5)");6
-;(static-interpreter "let f = let inc = proc (x) +(1,x) in inc in (f 5)");6
-;(static-interpreter "let g = let counter = newref(0) in proc(dummy) begin set counter +(counter,1);counter end in let a = (g 11) in let b = (g 11) in -(a,b)");-1
-;(static-interpreter"x")undefined
-;(static-interpreter "if 5 then 0 else 1");undefined
-;(static-interpreter "let x = undefined in x");undefined
-;(static-interpreter "let x = let y = set x 1 in y in x");undefined
-;(static-interpreter "let x = 5 in = (x, 5)");true
-;(static-interpreter "let x = newref(1) in = (x, 1)");true
-;(static-interpreter "letrec factorial = proc (x) if =(x,0) then  1 else *(x, (factorial -(x,1)))in (factorial 5)");120
-;(static-interpreter "letrec x = 1 x = +(x,2) in x");3
-;(static-interpreter "letrec f = proc (x) if =(x , 0) then 1 else *(x, (g -(x, 1))) g = proc (x) if =(x , 0) then 2 else *(x, (f -(x, 1))) in (f 3)");12
-;(static-interpreter "let x = 1 in let f = proc (y) +(x,y) in let x= 2 in (f 5)")6
+;(dynamic-interpreter "let x = newref(1) in begin set x 2;x end");2
+;(dynamic-interpreter "let x = let y = newref(1) in begin set y 2;y end in x");2
+;(dynamic-interpreter "let x = newref(1) in let f= proc (y) set y 2 in begin (f x); x end");2
+;(dynamic-interpreter "let f=proc(x y) +(x,y) g=proc(x y z) +(x,y,z) in (f (g 1 2 3)1)");7
+;(dynamic-interpreter "let f = proc(x) proc(y) +(x,y) in let g= proc(x)proc(y)proc(z) +(x,y,z) in ((f (((g 1)2)3))1)");7
+;(dynamic-interpreter "let f = newref (proc (x y) +(x,y)) in begin set f proc (x y) -(x,y); (f 5 1) end");4
+;(dynamic-interpreter "newref(1)")
+;(dynamic-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (h x) (g x))");13
+;(dynamic-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (g x) (h x))");17
+;(dynamic-interpreter "let x = let inc = proc (x) +(1,x) in inc in (x 5)");6
+;(dynamic-interpreter "let f = let inc = proc (x) +(1,x) in inc in (f 5)");6
+;(dynamic-interpreter "let g = let counter = newref(0) in proc(dummy) begin set counter +(counter,1);counter end in let a = (g 11) in let b = (g 11) in -(a,b)");-1
+;(dynamic-interpreter"x")undefined
+;(dynamic-interpreter "if 5 then 0 else 1");undefined
+;(dynamic-interpreter "let x = undefined in x");undefined
+;(dynamic-interpreter "let x = let y = set x 1 in y in x");undefined
+;(dynamic-interpreter "let x = 5 in = (x, 5)");true
+;(dynamic-interpreter "let x = newref(1) in = (x, 1)");true
+;(dynamic-interpreter "letrec factorial = proc (x) if =(x,0) then  1 else *(x, (factorial -(x,1)))in (factorial 5)");120
+;(dynamic-interpreter "letrec x = 1 x = +(x,2) in x");3
+;(dynamic-interpreter "letrec f = proc (x) if =(x , 0) then 1 else *(x, (g -(x, 1))) g = proc (x) if =(x , 0) then 2 else *(x, (f -(x, 1))) in (f 3)");12
+;(dynamic-interpreter "let x = 1 in let f = proc (y) +(x,y) in let x= 2 in (f 5)")6
