@@ -167,9 +167,7 @@
 
 (define report-invalid-reference
   (lambda (ref the-store)
-    (eopl:error 'setref
-                "illegal reference ~s in store ~s"
-                ref the-store)))
+    (undefined-exp)))
 
 ;; get-store-as-list : () -> Listof(List(Ref,Expval))
 ;; Exports the current state of the store as a scheme list.
@@ -194,35 +192,41 @@
 ;;refered from book
 (define expval->num
   (lambda (v)
-    (cases expval v
-      (num-val (num) num)
-      (else (expval-extractor-error 'num v)))))
+    (if (expval? v)
+        (cases expval v
+          (num-val (num) num)
+          (else (expval-extractor-error 'num v)))
+        v)))
 
 (define expval->bool
   (lambda (v)
-    (cases expval v
-      (bool-val (bool) bool)
-      (else 0))))
+    (if (expval? v)
+        (cases expval v
+          (bool-val (bool) bool)
+          (else 0))
+        v)))
 
 ;;refered from book
 (define expval->proc
   (lambda (v)
-    (cases expval v
-      (proc-val (proc) proc)
-      (else (expval-extractor-error 'proc v)))))
+    (if(expval? v)
+       (cases expval v
+         (proc-val (proc) proc)
+         (else (expval-extractor-error 'proc v)))
+       v)))
 
 ;;refered from book
 (define expval->ref
   (lambda (v)
-    (cases expval v
-      (ref-val (ref) ref)
-      (else (expval-extractor-error 'reference v)))))
-
+    (if (expval? v)
+        (cases expval v
+          (ref-val (ref) ref)
+          (else (expval-extractor-error 'reference v)))
+        v)))
 ;;refered from book
 (define expval-extractor-error
   (lambda (variant value)
-    (eopl:error 'expval-extractors "Looking for a ~s, found ~s"
-                variant value)))
+    (undefined-exp)))
 
 (define autoDerefIfNeed
   (lambda (exp)
@@ -443,30 +447,6 @@
 
 ;=====================================Test========================================
 (trace static-interpreter)
-(trace value-of)
-(trace value-of-let)
-(trace value-of-arith-exp)
-(trace value-of-begin)
-(trace newref)
-(trace setref!)
-(trace add-env)
-(trace apply-env)
-(trace scan&parse)
-(trace value-of-set)
-(trace value-of-exp)
-(trace apply-procedure)
-(trace autoDerefIfNeed)
-(trace value-of-arg)
-(trace expval->ref)
-(trace add-env-proc)
-(trace value-of-if)
-(trace value-of-compare-exp)
-(trace value-of-letrec)
-(trace letrec-getEnv)
-(trace letrec-getEnvRec)
-(trace getRecEnv)
-
-
 
 ;(static-interpreter "let x = newref(1) in begin set x 2;x end");2
 ;(static-interpreter "let x = let y = newref(1) in begin set y 2;y end in x");2

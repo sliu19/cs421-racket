@@ -37,7 +37,6 @@
   (sllgen:make-string-parser q1-spec q1-grammar))
 
 ;=================================Interpreter=====================================
-;;refered from slides&book
 (define-datatype expval expval?
   (num-val
    (value number?))
@@ -48,7 +47,7 @@
   (ref-val
    (ref reference?)))
 
-;;refered from slides&book
+;;Refered from slides
 (define-datatype proc proc?
   (procedure
    (bvar list?)
@@ -67,7 +66,7 @@
    (proc-bodies list?)
    (next-env environment?)))
 
-;;refered from slides&book
+;;Refered from slides
 (define apply-env
   (lambda (search-sym env)
     (cases environment env
@@ -90,7 +89,7 @@
                                     env))))]
                          (else (apply-env search-sym  next-env)))))))
 
-;;refered from slides&book
+;;Refered from slides
 (define location
   (lambda (sym syms)
     (cond
@@ -148,23 +147,25 @@
 ;; Page: 112
 (define setref!                       
   (lambda (ref val)
-    (set! the-store
-          (letrec
-              ((setref-inner
-                ;; returns a list like store1, except that position ref1
-                ;; contains val. 
-                (lambda (store1 ref1)
-                  (cond
-                    ((null? store1)
-                     (report-invalid-reference ref the-store))
-                    ((zero? ref1)
-                     (cons val (cdr store1)))
-                    (else
-                     (cons
-                      (car store1)
-                      (setref-inner
-                       (cdr store1) (- ref1 1))))))))
-            (setref-inner the-store ref)))))
+    (if (or (equal? (undefined-exp) ref) (equal? (undefined-exp) val))
+        (undefined-exp)
+        (set! the-store
+              (letrec
+                  ((setref-inner
+                    ;; returns a list like store1, except that position ref1
+                    ;; contains val. 
+                    (lambda (store1 ref1)
+                      (cond
+                        ((null? store1)
+                         (report-invalid-reference ref the-store))
+                        ((zero? ref1)
+                         (cons val (cdr store1)))
+                        (else
+                         (cons
+                          (car store1)
+                          (setref-inner
+                           (cdr store1) (- ref1 1))))))))
+                (setref-inner the-store ref))))))
 
 (define report-invalid-reference
   (lambda (ref the-store)
@@ -189,6 +190,7 @@
                  (list n (car sto))
                  (inner-loop (cdr sto) (+ n 1)))))))
       (inner-loop the-store 0))))
+
 ;;refered from book
 (define expval->num
   (lambda (v)
@@ -223,16 +225,19 @@
           (ref-val (ref) ref)
           (else (expval-extractor-error 'reference v)))
         v)))
-;;refered from slides&book
+
+;;refered from book
 (define expval-extractor-error
   (lambda (variant value)
     (undefined-exp)))
 
 (define autoDerefIfNeed
   (lambda (exp)
-    (cases expval exp
-      (ref-val(ref) (deref ref))
-      (else exp))))
+    (if (expval? exp)
+        (cases expval exp
+          (ref-val(ref) (deref ref))
+          (else exp))
+        exp)))
 
 ;=====================================Value-of========================================
 (define value-of
@@ -242,7 +247,7 @@
       [(expression? exp)
        (cases expression exp
          (num-exp (number) (num-val number))
-         (var-exp (var) (apply-env var env))
+         (var-exp (var) (value-of-var var env state))
          (true-exp () (bool-val #t))
          (false-exp () (bool-val #f))
          (undefined-exp () exp)
@@ -262,6 +267,41 @@
        (cases expval exp
          (proc-val(pr) exp)
          (else exp))])))
+
+(define value-of-var
+  (lambda (var env state)  
+    (let ((ref1 (apply-env var env)))
+      (let ((w (autoDerefIfNeed ref1)))
+        (cond ((expval? w) w)
+              (else
+               (let ((v1 (value-of-thunk w)))
+                 (begin (setref! (expval->ref ref1) v1)
+                        v1))))))))
+
+(define value-of-operand
+  (lambda (exp env state)
+    (if (expression? exp)
+        (cases expression exp
+          (var-exp (var) (apply-env var env)) ; no deref!
+          (num-exp (num) (value-of exp env state))
+          (else
+           (ref-val (newref (a-thunk exp env state)))))
+        (value-of exp env state ))))
+
+(define-datatype thunk thunk?
+  (a-thunk
+   (exp1 expression?)
+   (env environment?)
+   (stat number?)))
+
+(define value-of-thunk
+  (lambda (th)
+    (if (thunk? th)
+        (cases thunk th
+          (a-thunk (exp1 saved-env stat)
+                   (value-of exp1 saved-env stat)))
+        th)))
+
 
 (define value-of-proc
   (lambda (var body env state)
@@ -352,14 +392,14 @@
     (let ((proc (expval->proc (autoDerefIfNeed (value-of rator env state))))
           (arg (value-of-arg rand-list env state)))
       (if (zero? state)
-          (apply-procedure proc arg env  state)
-          (apply-procedure-rec proc arg env state)))))
+          (apply-procedure proc arg state)
+          (apply-procedure-rec proc arg state)))))
 
 (define value-of-arg
   (lambda (arg-list env state)
     (if (null? (cdr arg-list))
-        (list (value-of (car arg-list) env state))
-        (append (list (value-of (car arg-list) env state)) (value-of-arg (cdr arg-list) env state)))))
+        (list (value-of-operand (car arg-list) env state))
+        (append (list (value-of-operand (car arg-list) env state)) (value-of-arg (cdr arg-list) env state)))))
 
 (define value-of-begin
   (lambda (exp1 exps env state)
@@ -407,36 +447,17 @@
 
 ;;================Two cases to resolve letrec and curry==============
 (define apply-procedure
-  (lambda (proc1 arg env state)
+  (lambda (proc1 arg state)
     (cases proc proc1
       (procedure (var body saved-env)
-                 (set! env (appendEnv env saved-env))
-                 (let ((new-env (add-env-proc var arg env state)))
+                 (let ((new-env (add-env-proc var arg saved-env state)))
                    (value-of body new-env state))))))
 
-(define appendEnv
-  (lambda (env1 env2)
-    (cases environment env1
-      (empty-env  () env2)
-      (extend-env (var value NextEnv)
-                  (extend-env 
-                    var
-                    value
-                    (appendEnv NextEnv env2)))
-      (extend-env-rec* (exp1 exp2 exp3 NextEnv)
-                       (extend-env-rec*
-                        exp1
-                        exp2
-                        exp3
-                        (appendEnv NextEnv env2)))
-      )))
-
 (define apply-procedure-rec
-  (lambda (proc1 arg  env state)
+  (lambda (proc1 arg state)
     (cases proc proc1
       (procedure (var body saved-env)
-                 ;;(set! env (appendEnv env saved-env))
-                 (let ((new-env (add-env-proc var arg env state)))
+                 (let ((new-env (add-env-proc var arg saved-env state)))
                    (cases expression body
                      (proc-exp(var-list exp)
                               (value-of-exp body arg new-env state))
@@ -444,7 +465,7 @@
 
 
 ;==============================Wrap Func=================================
-(define dynamic-interpreter
+(define lazy-interpreter
   (lambda (exp)
     (initialize-store!)
     (let ([result (value-of (scan&parse exp) (empty-env) 0)])
@@ -465,29 +486,29 @@
 
 
 ;=====================================Test========================================
-;(trace dynamic-interpreter)
+;(trace lazy-interpreter)
 
 
-
-;(dynamic-interpreter "let x = newref(1) in begin set x 2;x end");2
-;(dynamic-interpreter "let x = let y = newref(1) in begin set y 2;y end in x");2
-;(dynamic-interpreter "let x = newref(1) in let f= proc (y) set y 2 in begin (f x); x end");2
-;(dynamic-interpreter "let f=proc(x y) +(x,y) g=proc(x y z) +(x,y,z) in (f (g 1 2 3)1)");7
-;(dynamic-interpreter "let f = proc(x) proc(y) +(x,y) in let g= proc(x)proc(y)proc(z) +(x,y,z) in ((f (((g 1)2)3))1)");7
-;(dynamic-interpreter "let f = newref (proc (x y) +(x,y)) in begin set f proc (x y) -(x,y); (f 5 1) end");4
-;(dynamic-interpreter "newref(1)")
-;(dynamic-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (h x) (g x))");13
-;(dynamic-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (g x) (h x))");17
-;(dynamic-interpreter "let x = let inc = proc (x) +(1,x) in inc in (x 5)");6
-;(dynamic-interpreter "let f = let inc = proc (x) +(1,x) in inc in (f 5)");6
-;(dynamic-interpreter "let g = let counter = newref(0) in proc(dummy) begin set counter +(counter,1);counter end in let a = (g 11) in let b = (g 11) in -(a,b)");-1
-;(dynamic-interpreter"x");undefined
-;(dynamic-interpreter "if 5 then 0 else 1");undefined
-;(dynamic-interpreter "let x = undefined in x");undefined
-;(dynamic-interpreter "let x = let y = set x 1 in y in x");undefined
-;(dynamic-interpreter "let x = 5 in = (x, 5)");true
-;(dynamic-interpreter "let x = newref(1) in = (x, 1)");true
-;(dynamic-interpreter "letrec factorial = proc (x) if =(x,0) then  1 else *(x, (factorial -(x,1)))in (factorial 5)");120
-;(dynamic-interpreter "letrec x = 1 x = +(x,2) in x");3
-;(dynamic-interpreter "letrec f = proc (x) if =(x , 0) then 1 else *(x, (g -(x, 1))) g = proc (x) if =(x , 0) then 2 else *(x, (f -(x, 1))) in (f 3)");12
-;(dynamic-interpreter "let x = 1 in let f = proc (y) +(x,y) in let x= 2 in (f 5)");7
+;(lazy-interpreter "let x = newref(1) in begin set x 2;x end");2
+;(lazy-interpreter "let x = let y = newref(1) in begin set y 2;y end in x");2
+;(lazy-interpreter "let x = newref(1) in let f= proc (y) set y 2 in begin (f x); x end");2
+;(lazy-interpreter "let f=proc(x y) +(x,y) g=proc(x y z) +(x,y,z) in (f (g 1 2 3)1)");7
+;(lazy-interpreter "let f = proc(x) proc(y) +(x,y) in let g= proc(x)proc(y)proc(z) +(x,y,z) in ((f (((g 1)2)3))1)");7
+;(lazy-interpreter "let f = newref (proc (x y) +(x,y)) in begin set f proc (x y) -(x,y); (f 5 1) end");4
+;(lazy-interpreter "newref(1)")
+;(lazy-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (h x) (g x))");13
+;(lazy-interpreter "let x = newref(1) g = proc(x) begin set x 5;x end h = proc(x) begin set x +(x,7); x end f = proc(x y) +(x,y) in (f (g x) (h x))");17
+;(lazy-interpreter "let x = let inc = proc (x) +(1,x) in inc in (x 5)");6
+;(lazy-interpreter "let f = let inc = proc (x) +(1,x) in inc in (f 5)");6
+;(lazy-interpreter "let g = let counter = newref(0) in proc(dummy) begin set counter +(counter,1);counter end in let a = (g 11) in let b = (g 11) in -(a,b)");-1
+;(lazy-interpreter"x")undefined
+;(lazy-interpreter "if 5 then 0 else 1");undefined;
+;(lazy-interpreter "let x = undefined in x");undefined
+;(lazy-interpreter "let x = let y = set x 1 in y in x");undefined
+;(lazy-interpreter "let x = 5 in = (x, 5)");true
+;(lazy-interpreter "let x = newref(1) in = (x, 1)");true
+;(lazy-interpreter "letrec factorial = proc (x) if =(x,0) then  1 else *(x, (factorial -(x,1)))in (factorial 5)");120
+;(lazy-interpreter "letrec x = 1 x = +(x,2) in x");3
+;(lazy-interpreter "letrec f = proc (x) if =(x , 0) then 1 else *(x, (g -(x, 1))) g = proc (x) if =(x , 0) then 2 else *(x, (f -(x, 1))) in (f 3)");12
+;(lazy-interpreter "let x = 1 in let f = proc (y) +(x,y) in let x= 2 in (f 5)");6
+;(lazy-interpreter "letrec ill = proc(x) (ill x) in let f = proc(y) 5 in (f (ill 2))");5
