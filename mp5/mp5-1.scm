@@ -91,36 +91,79 @@
   (lambda (super)
     (list (empty-env) super)))
 
+(define obj-env
+  (lambda (obj)
+    (car obj)))
+
 ;==============================Value-of Functions===================================
+; Helper to find the environment corresponding to the identifier list (id-list)
+(define get-set-env 
+  (lambda (obj id-list)
+    (if (equal? 1 (length id-list))
+        ; the list of IDs is length 1 => find the identifier in obj's env
+        (apply-env (car id-list) (obj-env obj))
+
+        ; the list of IDs is length >1 => consume car of list = some member variable of obj
+        (let ([recurse-obj (apply-env (car id-list) (obj-env obj))]
+              [remainder-list (cdr id-list)])
+          (get-set-env recurse-obj remainder-list)))))
+
 (define value-of
   (lambda (exp  env)
     (cond
       [(obj-exp? exp)
        (cases obj-exp exp
-         (letrec-exp(id-list exp-list body)
-                  (value-of body (add-env e)
-         
+         ;(letrec-exp(id-list exp-list body)
+         ;         (value-of body (add-env e)
+        (else 'undefined))
        ]
       [(expression? exp)
        (cases expression exp
+         
          (arith-exp (op exp exp-list)
             (let ([arglist (append (list exp) exp-list)])
               (reduce (parse-op op) (value-of exp env) (map (lambda (x) (value-of x env)) exp-list))))
+         
          (compare-exp (op exp1 exp2)
                       ((parse-op op) (value-of exp1 env) (value-of exp2 env)))
+         
          (num-exp (num) num)
+         
+         ; proc-exp
+         ; looks like you cannot pass arguments to proc
+         ; procs return body exp for dynamic dispatch
+         (proc-exp (arg-list body) body)
+    
+         ; set-exp
+         ; val exp also dynamic binding, so we do not evaluate here
+         (set-exp (exp1 val-exp)
+                  (cases expression exp1
+                    (object (obj-exp id-list) 
+                            (let* ([obj (value-of obj-exp env)]
+                                   [target-env (get-set-env obj id-list)])
+                              (if (equal? target-env 'undefined)
+                                  ; Set target not found
+                                  'undefined
+                                  
+                                  ; Set target was found
+                                  (extend-env target-env val-exp))
+                              ))
+                    (else 'undefined)))
+                  
+    
+         ; object)
+         
          (true-exp() #t)
+         
          (false-exp() #f)
+         
          (else 'undefined))
          ]
       [(MemberDecl? exp)  ])))
 
 (define add-env
   (lambda (id-list exp-list env)
-    (if (or (null? var-list) (null? exp1-list))
-        env
-        ((extend-tenv (car var-list) newtype env)
-          (add-env (cdr var-list) (cdr exp1-list) (extend-tenv (car var-list) newtype env) subst))))))
+    #t))
 
 
 
