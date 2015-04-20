@@ -20,27 +20,27 @@
 ;;parser
 ;;referred from textbook Appdendix B
 (define grammar
-  '((expression (arith-op "(" expression (arbno "," expression) ")")arith-exp)
+  '((obj-exp ("begin" expression (arbno expression ";") "end")begin-exp)
+    (obj-exp ("if" expression "then" expression "else" expression "end")if-exp)
+    (obj-exp ("let" (arbno identifier "=" expression) "in" expression "end") let-exp) 
+    (obj-exp ("letrec" (arbno identifier "=" expression) "in" expression "end") letrec-exp)
+    (obj-exp ( "(" expression (arbno expression) ")") exp-exp)
+    (obj-exp (identifier) var-exp)
+    (obj-exp ("self") self-exp)
+    (obj-exp ("super") super-exp)
+    (obj-exp ("EmptyObj") empty-exp)
+    (obj-exp ("extend" expression "with" (arbno MemberDecl)) extend-exp)
+    (expression (arith-op "(" expression (arbno "," expression) ")")arith-exp)
     (expression (compare-op "(" expression "," expression ")") compare-exp)
-    (expression ("=" "(" expression "," expression ")") compare-equ-exp)
-    (expression ("proc" "(" (arbno identifier) ")" expression) proc-exp)
+    (expression ("=""(" expression "," expression ")") compare-equ-exp)
+    (expression ("proc""(" (arbno identifier) ")" expression "end") proc-exp)
     (expression ("(set" expression expression ")") set-exp)
     (expression (number) num-exp)
     (expression ("true") true-exp)
     (expression ("false") false-exp)
-    (expression (obj-exp (arbno "."identifier) ) obj)
-    (obj-exp ("begin" expression (arbno ";" expression) "end")begin-exp)
-    (obj-exp ("if" expression "then" expression "else" expression)if-exp)
-    (obj-exp ("let" (arbno identifier "=" expression) "in" expression) let-exp) 
-    (obj-exp ("letrec" (arbno identifier "=" expression) "in" expression) letrec-exp)
-    (obj-exp ( "(" expression (arbno expression) ")") exp-exp)
-    (obj-exp(identifier) var-exp)
-    (obj-exp("self") self-exp)
-    (obj-exp("super") super-exp)
-    (obj-exp("EmptyObj") empty-exp)
-    (obj-exp("extend" expression "with" (arbno MemberDecl)) extend-exp)
-    (MemberDecl("{public}" identifier "=" expression) public-mem)
-    (MemberDecl("{protected}" identifier "=" expression) protected-mem)
+    (expression (obj-exp (arbno "."identifier)) object)
+    (MemberDecl("public" identifier "=" expression ";") public-member)
+    (MemberDecl("protected" identifier "=" expression";") protected-member)
     ))
 
 ;;sllgen from textbook appendix B
@@ -53,3 +53,12 @@
 (define object-interpreter
   (lambda (exp)
     (scan&parse exp)))
+
+
+(trace object-interpreter)
+
+(object-interpreter
+"let ob1 = extend EmptyObj with
+public m1 = proc() (self.m2) end; public m2 = proc() 1 end;
+ob2 = extend ob1 with public m1 = proc() (super.m1) end; public m2 = proc() 2 end;
+in (ob2.m1) end")
