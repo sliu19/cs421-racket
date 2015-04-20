@@ -49,11 +49,11 @@
     (obj-exp ("let" (arbno identifier "=" expression) "in" expression "end") let-exp) 
     (obj-exp ("letrec" (arbno identifier "=" expression) "in" expression "end") letrec-exp)
     (obj-exp ( "(" expression (arbno expression) ")") exp-exp)
+    (obj-exp (identifier) var-exp)
     (obj-exp ("self") self-exp)
     (obj-exp ("super") super-exp)
     (obj-exp ("EmptyObj") empty-exp)
     (obj-exp ("extend" expression "with" (arbno MemberDecl)) extend-exp)
-    (obj-exp (identifier) var-exp)
     (MemberDecl("public" identifier "=" expression ";") public-member)
     (MemberDecl("protected" identifier "=" expression";") protected-member)
     ))
@@ -80,10 +80,7 @@
  
 (define apply-env
   (lambda (key env)
-    (let [(result (apply-helper env key))]
-      (if (expression? result)
-          (value-of result env)
-          result))))
+  (apply-helper env key)))
 
 
 (define emptyObject
@@ -91,27 +88,8 @@
     (list (empty-env) '())))
 
 (define subClass
-  (lambda (self super)
-    (list self super)))
-
-;in publicity field #t is public 
-(define-datatype member member?
-  (mem
-   (publicity boolean?)
-   (sym symbol?)
-   (exp expression?)))
-
-(define member->id
-  (lambda (exp)
-    (cases member exp
-      (mem(exp1 id exp) id))))
-
-(define member->exp
-  (lambda (exp)
-    (cases member exp
-      (mem(exp1 id exp) exp))))
-
-
+  (lambda (super)
+    (list (empty-env) super)))
 
 (define obj-env
   (lambda (obj)
@@ -123,7 +101,10 @@
   (lambda (obj id-list)
     (if (equal? 1 (length id-list))
         ; the list of IDs is length 1 => find the identifier in obj's env
-        (apply-env (car id-list) (obj-env obj))
+        (let ([found (apply-env (car id-list) (obj-env obj))])
+          (if #t ; is public
+           found
+           'undefined))
 
         ; the list of IDs is length >1 => consume car of list = some member variable of obj
         (let ([recurse-obj (apply-env (car id-list) (obj-env obj))]
@@ -135,16 +116,9 @@
     (cond
       [(obj-exp? exp)
        (cases obj-exp exp
-         (letrec-exp(id-list exp-list body)
-                  (value-of body (add-env id-list exp-list env)))
-         
-         ;emptyObj
-         (empty-exp() (emptyObject))
-         (extend-exp(exp mem-list)
-                    (subClass (add-mem mem-list env) (value-of exp env)))
-         ;(self-exp ())
-         (var-exp (var) (apply-env var env))
-         (else  exp))
+         ;(letrec-exp(id-list exp-list body)
+         ;         (value-of body (add-env e)
+        (else 'undefined))
        ]
       [(expression? exp)
        (cases expression exp
@@ -155,7 +129,7 @@
          
          (compare-exp (op exp1 exp2)
                       ((parse-op op) (value-of exp1 env) (value-of exp2 env)))
-
+         
          (num-exp (num) num)
          
          ; proc-exp
@@ -182,35 +156,19 @@
     
          ; object)
          
-         (compare-equ-exp (exp1 exp2)
-                      (= (value-of exp1 env) (value-of exp2 env)))
-         (num-exp (num) num)
-
          (true-exp() #t)
          
          (false-exp() #f)
-
-         (object (obj obj-list) (value-of obj env))
-
+         
          (else 'undefined))
          ]
-      [(MemberDecl? exp) 
-       (cases MemberDecl exp
-         (public-member(id exp) (mem #t id exp))
-         (protected-member(id exp) (mem #f id exp)))])))
+      [(MemberDecl? exp)  ])))
 
 (define add-env
   (lambda (id-list exp-list env)
-    (if (or (null? id-list) (null? exp-list))
-        env
-        (extend-env (car id-list) (car exp-list) (add-env (cdr id-list) (cdr exp-list) env)))))
+    #t))
 
-(define add-mem
-  (lambda (mem-list env)
-    (if (null? mem-list)
-        (empty-env)
-        (extend-env (member->id (value-of (car mem-list) env))(member->exp (value-of (car mem-list) env)) (add-mem (cdr mem-list) env)))))
-    
+
 
 ;===============================Object-interpreter===================================
 (define object-interpreter
@@ -219,10 +177,5 @@
 
 
 (trace object-interpreter)
-(trace scan&parse)
-(trace value-of)
-(trace add-env)
-(trace add-mem)
-(trace apply-env)
 
-(object-interpreter "extend EmptyObj with public a =3;  protected b = a; public c = 1;")
+(object-interpreter"<(1,2)")
