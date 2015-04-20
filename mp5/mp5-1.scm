@@ -49,11 +49,11 @@
     (obj-exp ("let" (arbno identifier "=" expression) "in" expression "end") let-exp) 
     (obj-exp ("letrec" (arbno identifier "=" expression) "in" expression "end") letrec-exp)
     (obj-exp ( "(" expression (arbno expression) ")") exp-exp)
-    (obj-exp (identifier) var-exp)
     (obj-exp ("self") self-exp)
     (obj-exp ("super") super-exp)
     (obj-exp ("EmptyObj") empty-exp)
     (obj-exp ("extend" expression "with" (arbno MemberDecl)) extend-exp)
+    (obj-exp (identifier) var-exp)
     (MemberDecl("public" identifier "=" expression ";") public-member)
     (MemberDecl("protected" identifier "=" expression";") protected-member)
     ))
@@ -80,7 +80,10 @@
  
 (define apply-env
   (lambda (key env)
-  (apply-helper env key)))
+    (let [(result (apply-helper env key))]
+      (if (expression? result)
+          (value-of result env)
+          result))))
 
 
 (define emptyObject
@@ -88,8 +91,27 @@
     (list (empty-env) '())))
 
 (define subClass
-  (lambda (super)
-    (list (empty-env) super)))
+  (lambda (self super)
+    (list self super)))
+
+;in publicity field #t is public 
+(define-datatype member member?
+  (mem
+   (publicity boolean?)
+   (sym symbol?)
+   (exp expression?)))
+
+(define member->id
+  (lambda (exp)
+    (cases member exp
+      (mem(exp1 id exp) id))))
+
+(define member->exp
+  (lambda (exp)
+    (cases member exp
+      (mem(exp1 id exp) exp))))
+
+
 
 ;==============================Value-of Functions===================================
 (define value-of
@@ -98,8 +120,15 @@
       [(obj-exp? exp)
        (cases obj-exp exp
          (letrec-exp(id-list exp-list body)
-                  (value-of body (add-env e)
+                  (value-of body (add-env id-list exp-list env)))
          
+         ;emptyObj
+         (empty-exp() (emptyObject))
+         (extend-exp(exp mem-list)
+                    (subClass (add-mem mem-list env) (value-of exp env)))
+         ;(self-exp ())
+         (var-exp (var) (apply-env var env))
+         (else  exp))
        ]
       [(expression? exp)
        (cases expression exp
@@ -108,21 +137,32 @@
               (reduce (parse-op op) (value-of exp env) (map (lambda (x) (value-of x env)) exp-list))))
          (compare-exp (op exp1 exp2)
                       ((parse-op op) (value-of exp1 env) (value-of exp2 env)))
+         (compare-equ-exp (exp1 exp2)
+                      (= (value-of exp1 env) (value-of exp2 env)))
          (num-exp (num) num)
+         
          (true-exp() #t)
          (false-exp() #f)
+         (object (obj obj-list) (value-of obj env))
          (else 'undefined))
          ]
-      [(MemberDecl? exp)  ])))
+      [(MemberDecl? exp) 
+       (cases MemberDecl exp
+         (public-member(id exp) (mem #t id exp))
+         (protected-member(id exp) (mem #f id exp)))])))
 
 (define add-env
   (lambda (id-list exp-list env)
-    (if (or (null? var-list) (null? exp1-list))
+    (if (or (null? id-list) (null? exp-list))
         env
-        ((extend-tenv (car var-list) newtype env)
-          (add-env (cdr var-list) (cdr exp1-list) (extend-tenv (car var-list) newtype env) subst))))))
+        (extend-env (car id-list) (car exp-list) (add-env (cdr id-list) (cdr exp-list) env)))))
 
-
+(define add-mem
+  (lambda (mem-list env)
+    (if (null? mem-list)
+        (empty-env)
+        (extend-env (member->id (value-of (car mem-list) env))(member->exp (value-of (car mem-list) env)) (add-mem (cdr mem-list) env)))))
+    
 
 ;===============================Object-interpreter===================================
 (define object-interpreter
@@ -131,5 +171,10 @@
 
 
 (trace object-interpreter)
+(trace scan&parse)
+(trace value-of)
+(trace add-env)
+(trace add-mem)
+(trace apply-env)
 
-(object-interpreter"<(1,2)")
+(object-interpreter "extend EmptyObj with public a =3;  protected b = a; public c = 1;")
