@@ -66,6 +66,8 @@
 (define empty-env
   (lambda () '()))
  
+
+;Env: (key （exp protection）)   ;;protection 1:public   0:non-member     -1:protected
 (define extend-env
   (lambda (key value env)
       (cond ((null? env) (list (list key value)))
@@ -75,16 +77,19 @@
 (define apply-helper
   (lambda (env key)
     (cond ((null? env) 'undefined)
-          ((equal? key (caar env)) (cadar env))
+          ((equal? key (caar env))
+           ;(if (expression? (cadar env))
+                (cadar env))
+               ; (car env)))
           (else (apply-helper (cdr env) key)))))
  
 (define apply-env
   (lambda (key env)
     (let [(result (apply-helper env key))]
-      (if (expression? result)
-          (value-of result env)
-          result))))
-
+      (if (expression? (car result))
+          (value-of (car result) env)
+          (car result)))))
+   
 
 (define emptyObject
   (lambda ()
@@ -97,9 +102,14 @@
 ;in publicity field #t is public 
 (define-datatype member member?
   (mem
-   (publicity boolean?)
+   (publicity number?)
    (sym symbol?)
    (exp expression?)))
+
+(define member->pub
+  (lambda (exp)
+    (cases member exp
+      (mem(exp1 id exp) exp1))))
 
 (define member->id
   (lambda (exp)
@@ -135,8 +145,11 @@
     (cond
       [(obj-exp? exp)
        (cases obj-exp exp
-         (letrec-exp(id-list exp-list body)
+         
+         (let-exp (id-list exp-list body)
                   (value-of body (add-env id-list exp-list env)))
+         (letrec-exp(id-list exp-list body)
+                  (value-of body (add-env-rec id-list exp-list env)))
          
          ;emptyObj
          (empty-exp() (emptyObject))
@@ -182,35 +195,50 @@
     
          ; object)
          
+        
          (compare-equ-exp (exp1 exp2)
                       (= (value-of exp1 env) (value-of exp2 env)))
-         (num-exp (num) num)
+        
 
          (true-exp() #t)
          
          (false-exp() #f)
 
-         (object (obj obj-list) (value-of obj env))
+         ;TO DO
+         (object (obj obj-list) (value-of-object obj obj-list env) )
 
          (else 'undefined))
          ]
       [(MemberDecl? exp) 
        (cases MemberDecl exp
-         (public-member(id exp) (mem #t id exp))
-         (protected-member(id exp) (mem #f id exp)))])))
+         (public-member(id exp) (mem 1 id exp))
+         (protected-member(id exp) (mem -1 id exp)))]
+      [else exp])))
 
 (define add-env
   (lambda (id-list exp-list env)
     (if (or (null? id-list) (null? exp-list))
         env
-        (extend-env (car id-list) (car exp-list) (add-env (cdr id-list) (cdr exp-list) env)))))
+        (extend-env (car id-list) (list (value-of (car exp-list) env) 0) (add-env (cdr id-list) (cdr exp-list) env)))))
+
+(define add-env-rec
+  (lambda (id-list exp-list env)
+    (if (or (null? id-list) (null? exp-list))
+        env
+        (extend-env (car id-list) (list (car exp-list) 0) (add-env (cdr id-list) (cdr exp-list) env)))))
 
 (define add-mem
   (lambda (mem-list env)
     (if (null? mem-list)
         (empty-env)
-        (extend-env (member->id (value-of (car mem-list) env))(member->exp (value-of (car mem-list) env)) (add-mem (cdr mem-list) env)))))
-    
+        (extend-env (member->id (value-of (car mem-list) env))(list (member->exp (value-of (car mem-list) env))(member->pub (value-of (car mem-list) env))) (add-mem (cdr mem-list) env)))))
+ 
+(define value-of-object
+  (lambda (obj obj-list env)
+    (if (null? obj-list)
+        (value-of obj env)
+        (let [(env (obj-env (value-of obj env)))]
+              (value-of-object (var-exp (car obj-list)) (cdr obj-list) env)))))
 
 ;===============================Object-interpreter===================================
 (define object-interpreter
@@ -222,7 +250,17 @@
 (trace scan&parse)
 (trace value-of)
 (trace add-env)
+(trace apply-helper)
 (trace add-mem)
 (trace apply-env)
+(trace value-of-object)
+(trace obj-env)
 
-(object-interpreter "extend EmptyObj with public a =3;  protected b = a; public c = 1;")
+
+
+;(object-interpreter "extend EmptyObj with public a =3;  protected b = a; public c = 1;")
+;(object-interpreter "letrec a =b b = 3 c = a in +(a,b,c) end");9
+(object-interpreter "let ob = extend EmptyObj with public x =1; in ob.x end");1
+;(scan&parse "a.b.c.x")
+
+(object-interpreter "let a = extend EmptyObj with public b = extend EmptyObj with public c = extend EmptyObj with public x = 5 ; ; ; in a.b.c.x end");1
