@@ -236,6 +236,12 @@
   (lambda ()
     (list (newref (empty-env)) '())))
 
+(define emptyObject?
+  (lambda (obj)
+    (if (and (equal? '() (car obj)) (equal? '() (cadr obj)))
+        #t
+        #f)))
+
 (define subClass
   (lambda (self super)
     (list self super)))
@@ -362,6 +368,15 @@
       [(obj-exp? exp)
        (cases obj-exp exp
          
+         (if-exp(exp1 exp2 exp3)
+                (let [(result (value-of exp1 env))]
+                  (cond
+                    [(boolean? result)
+                     (if result
+                         (value-of exp2 env)
+                         (value-of exp3 env))]
+                    [else 'undefined])))
+         
          (let-exp (id-list exp-list body)
                   (let* ([extended-env (add-env id-list exp-list env)]
                         [id-exp-pairs (zip id-list exp-list)]
@@ -371,11 +386,21 @@
          (letrec-exp(id-list exp-list body)
                   (value-of body (add-env-rec id-list exp-list env)))
          
+         (exp-exp (first-exp rest-list) 
+                  (let* ([exp-list (cons first-exp rest-list)]
+                         [exp-list-length (length exp-list)]
+                         [env-list (replicate env exp-list-length)]
+                         [value-list (map value-of exp-list env-list)])
+                    (list-last value-list)))
+         
          ;emptyObj
          (empty-exp() (emptyObject))
          (extend-exp(exp mem-list)
                     (subClass (add-mem mem-list env) (value-of exp env)))
-         ;(self-exp ())
+         (self-exp ()
+                   (value-of (var-exp 'self) env))
+         (super-exp()
+                  (cadr (value-of (var-exp 'self) env))) 
          (var-exp (var) (apply-env var env))
          
          ;begin
@@ -448,7 +473,6 @@
          
          (false-exp() #f)
 
-         ;TO DO
          (object (obj obj-list) (value-of-object obj obj-list env) )
 
          (else 'undefined))
@@ -481,8 +505,31 @@
   (lambda (obj obj-list env)
     (if (null? obj-list)
         (value-of obj env)
-        (let [(env (obj-env (value-of obj env)))]
+        (let* [(result (value-of obj env))
+               (env (obj-env-unroll result))
+               (env (extend-env 'self result env))]              
               (value-of-object (var-exp (car obj-list)) (cdr obj-list) env)))))
+
+(define obj-env-unroll
+  (lambda (obj)
+    (if (emptyObject? obj)
+        (list obj)
+        (append (car obj) (obj-env-unroll (cadr obj))))))
+
+(define replicate
+  (lambda (element n)
+    (cond
+      ((zero? n)
+        '())
+      (else
+        (cons element (replicate element (- n 1)))))))
+
+(define list-last
+  (lambda (l)
+    (if (equal? (length l) 1)
+      (car l)
+      (list-last (cdr l)))))
+
 
 ;===============================Object-interpreter===================================
 (define object-interpreter
@@ -499,8 +546,9 @@
 (trace apply-env)
 (trace value-of-object)
 (trace obj-env)
-
-
+(trace subClass)
+(trace extend-env)
+(trace obj-env-unroll)
 
 ;(object-interpreter "extend EmptyObj with public a =3;  protected b = a; public c = 1;")
 ;(object-interpreter "letrec a =b b = 3 c = a in +(a,b,c) end");9
