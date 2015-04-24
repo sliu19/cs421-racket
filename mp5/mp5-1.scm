@@ -90,8 +90,9 @@
     (cond ((equal? 'undefined val) val)
           ((equal? 'undefined ref-type) ref-type)
           ((is-reference? ref-type) (begin 
+                                      (write 'inside-setref)
                                       (setref-helper (cadr ref-type) val)
-                                      'undefined))
+                                      ref-type))
           (else (begin 
                   (setref-helper ref-type val)
                   'undefined)))))
@@ -107,7 +108,7 @@
                   (cond
                     ((null? store1)
                      'undefined)
-                    ((zero? ref1)
+                    ((equal? 0 ref1)
                      (cons val (cdr store1)))
                     (else
                      (cons
@@ -189,12 +190,16 @@
                     (deref possibly-env-ref)
                     possibly-env-ref)])
       (cond ((null? env) (begin 
+                           (write 'inside-null)
                            (setref possibly-env-ref (list (list key value)))
                            possibly-env-ref))
             ((equal? (caar env) key) (begin 
                                        (setref possibly-env-ref (append (list (list key value)) (cdr (deref possibly-env-ref))))
                                        possibly-env-ref))
-            (else (append (list (car env)) (extend-env key value (cdr env) )))))))
+            (else 
+             (begin
+               (setref possibly-env-ref (append (list (list key value))env))
+               possibly-env-ref))))))
 
 (define apply-helper
   (lambda (possibly-env-ref key)
@@ -270,7 +275,7 @@
 
 (define obj-env
   (lambda (obj)
-    (car obj)))
+    (caar obj)))
 
 (define env-obj-is-protected
   (lambda (id env)
@@ -337,6 +342,7 @@
             (begin-helper rest env))))))
 
 (define (zip . xss) (apply map list xss))
+
 (define add-id-to-object-pairs 
   (lambda (id-exp-pairs env)
     (if (null? id-exp-pairs) 
@@ -356,7 +362,7 @@
                [existing-obj (apply-env id env)]
                [extended-obj (if (equal? existing-obj 'undefined)
                                  'undefined
-                                 (list (append existing-obj (list id)) 0))]
+                                 (list (append (list existing-obj) (list id)) 0))]
                [extended-env (if is-obj-creation
                                  (extend-env id extended-obj env)
                                  env)])
@@ -498,23 +504,34 @@
 (define add-mem
   (lambda (mem-list env)
     (if (null? mem-list)
-        (newref (empty-env))
+        env
         (extend-env (member->id (value-of (car mem-list) env))(list (member->exp (value-of (car mem-list) env))(member->pub (value-of (car mem-list) env))) (add-mem (cdr mem-list) env)))))
- 
+
 (define value-of-object
   (lambda (obj obj-list env)
-    (if (null? obj-list)
-        (value-of obj env)
-        (let* [(result (value-of obj env))
-               (env (obj-env-unroll result))
-               (env (extend-env 'self result env))]              
-              (value-of-object (var-exp (car obj-list)) (cdr obj-list) env)))))
-
-(define obj-env-unroll
-  (lambda (obj)
+    (let [(obj (value-of obj env))]
+      (if (null? obj-list)
+          obj
+          (if (null? (cdr obj-list))   
+              (search-value (car obj-list) obj)
+              (let* [(result (value-of obj env))
+                     (env (extend-env 'self result env))]              
+                (value-of-object (search-value (car obj-list) obj) (cdr obj-list) env)))))))
+    
+(define search-value
+  (lambda (obj-id obj)
     (if (emptyObject? obj)
-        (list obj)
-        (append (car obj) (obj-env-unroll (cadr obj))))))
+        'undefined
+        (let [(result (value-of obj-id (obj-env obj)))]
+          (if (equal? 'undefined result)
+              (search-value obj-id (cadr obj))
+              (if (env-obj-is-public obj-id (obj-env obj))
+                  
+                   (apply-env result (obj-env obj))
+                  ;;Not right, check for self and super
+                  (if (or (equal? obj-id 'self) (equal? obj-id 'super))
+                      result
+                      'undefined)))))))
 
 (define replicate
   (lambda (element n)
@@ -548,14 +565,22 @@
 (trace obj-env)
 (trace subClass)
 (trace extend-env)
-(trace obj-env-unroll)
+(trace search-value)
+(trace deref)
+(trace setref-helper)
+(trace setref)
+(trace env-obj-is-public)
+(trace add-id-to-object-pairs)
 
-;(object-interpreter "extend EmptyObj with public a =3;  protected b = a; public c = 1;")
-;(object-interpreter "letrec a =b b = 3 c = a in +(a,b,c) end");9
+
+;(object-interpreter "extend EmptyObj with public a =3;  protected b = 2; public c = 1;")
+;(object-interpreter "letrec a =b b = 3 in a end");3
+;(object-interpreter "let a =2 b = 3 c =4  in +(a,b,c) end");9
+;(object-interpreter "let a =4  in a end");
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in ob.x end");1
 ;(scan&parse "a.b.c.x")
 
-;(object-interpreter "let a = extend EmptyObj with public b = extend EmptyObj with public c = extend EmptyObj with public x = 5 ; ; ; in a.b.c.x end");1
+(object-interpreter "let a = extend EmptyObj with public b = extend a with public c = extend b with public x = 5 ; ; ; in a.b.c.x end");1
 
 
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in begin (set ob.x 2) ; ob.x; end end")
