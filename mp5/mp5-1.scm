@@ -221,9 +221,12 @@
            [result (apply-helper env key)])
       (if (equal? 'undefined result)
           'undefined
-          (if (expression? (car result))
-              (value-of (car result) possibly-env-ref)
-              (car result))))))
+          (cond 
+            ((list? result)
+             (if (expression? (car result))
+                 (value-of (car result) possibly-env-ref)
+                 (car result)))
+            (else result))))))
 
 ;Bug? How is this getting the right value?
 (define apply-env-protection
@@ -368,6 +371,13 @@
                                  env)])
           extended-env))))
 
+(define extend-multi 
+  (lambda (env-ref arg-list evaluated-args)
+    (if (or (null? arg-list) (null? evaluated-args))
+        env-ref
+        (let ([new-env-ref (extend-env (car arg-list) (car evaluated-args) env-ref)])
+          (extend-multi new-env-ref (cdr arg-list) (cdr evaluated-args))))))
+
 (define value-of
   (lambda (exp  env)
     (cond
@@ -392,17 +402,29 @@
          (letrec-exp(id-list exp-list body)
                   (value-of body (add-env-rec id-list exp-list env)))
          
-         (exp-exp (first-exp rest-list) 
-                  (let* ([exp-list (cons first-exp rest-list)]
-                         [exp-list-length (length exp-list)]
-                         [env-list (replicate env exp-list-length)]
-                         [value-list (map value-of exp-list env-list)])
-                    (list-last value-list)))
+         (exp-exp (first-exp rest-exp-list)
+                  (let* ([proc-struct (value-of first-exp env)]
+                         [arg-list (car proc-struct)]
+                         [body-exp (cadr proc-struct)]
+                         [evaluated-args (map (lambda (x) (value-of x env)) rest-exp-list)]
+                         [new-env (extend-multi env arg-list evaluated-args)])
+                    (value-of body-exp new-env)))
+                         
+         
+         ;(exp-exp (first-exp rest-list) 
+         ;         (let* ([exp-list (cons first-exp rest-list)]
+         ;                [exp-list-length (length exp-list)]
+         ;                [env-list (replicate env exp-list-length)]
+         ;                [value-list (map value-of exp-list env-list)])
+         ;           (list-last value-list)))
          
          ;emptyObj
          (empty-exp() (emptyObject))
          (extend-exp(exp mem-list)
-                    (subClass (add-mem mem-list env) (value-of exp env)))
+                    (let [(obj (value-of exp env))]
+                      (begin
+                        (extend-env 'self obj env)
+                        (subClass (add-mem mem-list env) obj))))
          (self-exp ()
                    (value-of (var-exp 'self) env))
          (super-exp()
@@ -432,7 +454,7 @@
          ; proc-exp
          ; looks like you cannot pass arguments to proc
          ; procs return body exp for dynamic dispatch
-         (proc-exp (arg-list body) (arg-list body))
+         (proc-exp (arg-list body) (list arg-list body))
     
          ; set-exp
          ; val exp also dynamic binding, so we do not evaluate here
@@ -584,4 +606,3 @@
 
 
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in begin (set ob.x 2) ; ob.x; end end")
-
