@@ -425,13 +425,20 @@
                     (let* [(obj (value-of exp env))
                           (new-obj (subClass (add-mem mem-list env) obj))]
                       (begin
-                        (extend-env 'self new-obj env)
+                        (extend-env 'self new-obj (obj-env new-obj))
                         (car new-obj))))
 
          (self-exp ()
                   (value-of (var-exp 'self) env))
          (super-exp()
-                  (cadr (value-of (var-exp 'self) env)))
+                   (let* [(selfObj (value-of (var-exp 'self) env))
+                         (superObj (cadr selfObj))]
+                   (begin
+                     (write 'super-exp)
+                     (write selfObj)
+                     (write superObj)
+                     superObj)))
+                       
  
          (var-exp (var) (apply-env var env))
          
@@ -621,6 +628,10 @@
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in begin (set ob.x 2) ; ob.x; end end")
 
 
-;(object-interpreter"let ob1 = extend EmptyObj with protected x = 1;in let ob2 = extend ob1 with protected x=2; in super.x end end");2
 
 ;(object-interpreter"let ob1 = extend EmptyObj with protected x = 1;in let ob2 = extend ob1 with public getX = proc () self.x end; in (ob2.getX)end end");1
+(object-interpreter
+"let ob1 = extend EmptyObj with
+public m1 = proc() (self.m2) end; public m2 = proc() 1 end;
+ob2 = extend ob1 with public m1 = proc() (super.m1) end; public m2 = proc() 2 end;
+in (ob2.m1) end")
