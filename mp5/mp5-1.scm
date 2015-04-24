@@ -225,7 +225,8 @@
             ((list? result)
              (if (expression? (car result))
                  (value-of (car result) possibly-env-ref)
-                 (car result)))
+                 ;;;
+                 result))
             (else result))))))
 
 ;Bug? How is this getting the right value?
@@ -421,11 +422,11 @@
          ;emptyObj
          (empty-exp() (emptyObject))
          (extend-exp(exp mem-list)
-                    (let [(obj (value-of exp env))]
+                    (let* [(obj (value-of exp env))
+                          (new-obj (subClass (add-mem mem-list env) obj))]
                       (begin
-                        (extend-env 'self obj env)
-
-                        (subClass (add-mem mem-list env) obj))))
+                        (extend-env 'self new-obj env)
+                        new-obj)))
 
          (self-exp ()
                    (value-of (var-exp 'self) env))
@@ -613,10 +614,6 @@
 
 
 (object-interpreter
-"let factObj = extend EmptyObj with
-public fact = 1;
-public aa = self.fact;
-
-in aa
-end")
-
+"let ob1 = extend EmptyObj with protected x = 1;
+in let ob2 = extend ob1 with public x=2; in self.x
+end end")
