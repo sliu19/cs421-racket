@@ -222,7 +222,7 @@
       (if (equal? 'undefined result)
           'undefined
           (if (expression? (car result))
-              (value-of (car result) env)
+              (value-of (car result) possibly-env-ref)
               (car result))))))
 
 ;Bug? How is this getting the right value?
@@ -275,7 +275,7 @@
 
 (define obj-env
   (lambda (obj)
-    (caar obj)))
+    (car obj)))
 
 (define env-obj-is-protected
   (lambda (id env)
@@ -384,10 +384,10 @@
                     [else 'undefined])))
          
          (let-exp (id-list exp-list body)
-                  (let* ([extended-env (add-env id-list exp-list env)]
-                        [id-exp-pairs (zip id-list exp-list)]
-                        [env-obj-with-ids (add-id-to-object-pairs id-exp-pairs extended-env)])
-                    (value-of body env-obj-with-ids)))
+                  (let* ([extended-env (add-env id-list exp-list env)])
+                        ;[id-exp-pairs (zip id-list exp-list)]
+                        ;[env-obj-with-ids (add-id-to-object-pairs id-exp-pairs extended-env)])
+                    (value-of body extended-env)))
          
          (letrec-exp(id-list exp-list body)
                   (value-of body (add-env-rec id-list exp-list env)))
@@ -580,7 +580,7 @@
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in ob.x end");1
 ;(scan&parse "a.b.c.x")
 
-(object-interpreter "let a = extend EmptyObj with public b = extend a with public c = extend b with public x = 5 ; ; ; in a.b.c.x end");1
+;(object-interpreter "let a = extend EmptyObj with public b = extend EmptyObj with public c = extend EmptyObj with public x = 5 ; ; ; in a.b.c.x end");1
 
 
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in begin (set ob.x 2) ; ob.x; end end")
