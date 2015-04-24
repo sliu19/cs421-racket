@@ -521,7 +521,7 @@
   (lambda (id-list exp-list env)
     (if (or (null? id-list) (null? exp-list))
         env
-        (extend-env (car id-list) (list (car exp-list) 0) (add-env (cdr id-list) (cdr exp-list) env)))))
+        (add-env-rec (cdr id-list) (cdr exp-list) (extend-env (car id-list) (list (car exp-list) 0) env )))))
 
 (define add-mem
   (lambda (mem-list env)
@@ -580,6 +580,7 @@
 (trace scan&parse)
 (trace value-of)
 (trace add-env)
+(trace add-env-rec)
 (trace apply-helper)
 (trace add-mem)
 (trace apply-env)
@@ -595,14 +596,15 @@
 (trace add-id-to-object-pairs)
 
 
+
 ;(object-interpreter "extend EmptyObj with public a =3;  protected b = 2; public c = 1;")
-;(object-interpreter "letrec a =b b = 3 in a end");3
+;(object-interpreter "letrec a =b b = 3 c =a in c end");3
 ;(object-interpreter "let a =2 b = 3 c =4  in +(a,b,c) end");9
 ;(object-interpreter "let a =4  in a end");
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in ob.x end");1
 ;(scan&parse "a.b.c.x")
 
-;(object-interpreter "let a = extend EmptyObj with public b = extend EmptyObj with public c = extend EmptyObj with public x = 5 ; ; ; in a.b.c.x end");1
+(object-interpreter "let a = extend EmptyObj with public b = extend EmptyObj with public c = extend EmptyObj with public x = 5 ; ; ; in a.b.c.x end");1
 
 
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in begin (set ob.x 2) ; ob.x; end end")
