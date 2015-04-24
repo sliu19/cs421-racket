@@ -621,6 +621,6 @@
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in begin (set ob.x 2) ; ob.x; end end")
 
 
-(object-interpreter"let ob1 = extend EmptyObj with protected x = 1;in let ob2 = extend ob1 with protected x=2; in super.x end end");2
+;(object-interpreter"let ob1 = extend EmptyObj with protected x = 1;in let ob2 = extend ob1 with protected x=2; in super.x end end");2
 
 ;(object-interpreter"let ob1 = extend EmptyObj with protected x = 1;in let ob2 = extend ob1 with public getX = proc () self.x end; in (ob2.getX)end end");1
