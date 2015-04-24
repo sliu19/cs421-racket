@@ -424,7 +424,9 @@
                     (let [(obj (value-of exp env))]
                       (begin
                         (extend-env 'self obj env)
+
                         (subClass (add-mem mem-list env) obj))))
+
          (self-exp ()
                    (value-of (var-exp 'self) env))
          (super-exp()
@@ -536,8 +538,8 @@
           obj
           (if (null? (cdr obj-list))   
               (search-value (car obj-list) obj)
-              (let* [(result (value-of obj env))
-                     (env (extend-env 'self result env))]              
+              (let* [(result (value-of obj env))]
+                     ;(env (extend-env 'self result env))]              
                 (value-of-object (search-value (car obj-list) obj) (cdr obj-list) env)))))))
     
 (define search-value
@@ -604,7 +606,17 @@
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in ob.x end");1
 ;(scan&parse "a.b.c.x")
 
-(object-interpreter "let a = extend EmptyObj with public b = extend EmptyObj with public c = extend EmptyObj with public x = 5 ; ; ; in a.b.c.x end");1
+;(object-interpreter "let a = extend EmptyObj with public b = extend EmptyObj with public c = extend EmptyObj with public x = 5 ; ; ; in a.b.c.x end");1
 
 
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in begin (set ob.x 2) ; ob.x; end end")
+
+
+(object-interpreter
+"let factObj = extend EmptyObj with
+public fact = 1;
+public aa = self.fact;
+
+in aa
+end")
+
