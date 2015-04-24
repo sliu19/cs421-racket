@@ -584,3 +584,4 @@
 
 
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in begin (set ob.x 2) ; ob.x; end end")
+
