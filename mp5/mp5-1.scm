@@ -426,12 +426,13 @@
                           (new-obj (subClass (add-mem mem-list env) obj))]
                       (begin
                         (extend-env 'self new-obj env)
-                        new-obj)))
+                        (car new-obj))))
 
          (self-exp ()
-                   (value-of (var-exp 'self) env))
+                  (value-of (var-exp 'self) env))
          (super-exp()
-                  (cadr (value-of (var-exp 'self) env))) 
+                  (cadr (value-of (var-exp 'self) env)))
+ 
          (var-exp (var) (apply-env var env))
          
          ;begin
@@ -534,28 +535,29 @@
 
 (define value-of-object
   (lambda (obj obj-list env)
-    (let [(obj (value-of obj env))]
+    (let [(super (is-superUser? obj))
+          (obj (value-of obj env))]
       (if (null? obj-list)
           obj
           (if (null? (cdr obj-list))   
-              (search-value (car obj-list) obj)
-              (let* [(result (value-of obj env))]
-                     ;(env (extend-env 'self result env))]              
-                (value-of-object (search-value (car obj-list) obj) (cdr obj-list) env)))))))
+              (search-value (car obj-list) obj super)
+              (let* [(result (value-of obj env))
+                     (env (extend-env 'self result env))]              
+                (value-of-object (search-value (car obj-list) obj super) (cdr obj-list) env)))))))
     
 (define search-value
-  (lambda (obj-id obj)
+  (lambda (obj-id obj superUser)
     (if (emptyObject? obj)
         'undefined
         (let [(result (value-of obj-id (obj-env obj)))]
           (if (equal? 'undefined result)
-              (search-value obj-id (cadr obj))
+              (search-value obj-id (cadr obj) superUser)
               (if (env-obj-is-public obj-id (obj-env obj))
                   
                    (apply-env result (obj-env obj))
                   ;;Not right, check for self and super
-                  (if (or (equal? obj-id 'self) (equal? obj-id 'super))
-                      result
+                  (if superUser
+                      (apply-env result (obj-env obj))
                       'undefined)))))))
 
 (define replicate
@@ -572,7 +574,13 @@
       (car l)
       (list-last (cdr l)))))
 
-
+(define is-superUser?
+  (lambda (exp)
+    (cases obj-exp exp
+      (self-exp() #t)
+      (super-exp() #t)
+      (else #f))))
+      
 ;===============================Object-interpreter===================================
 (define object-interpreter
   (lambda (exp)
@@ -613,7 +621,6 @@
 ;(object-interpreter "let ob = extend EmptyObj with public x =1; in begin (set ob.x 2) ; ob.x; end end")
 
 
-(object-interpreter
-"let ob1 = extend EmptyObj with protected x = 1;
-in let ob2 = extend ob1 with public x=2; in self.x
-end end")
+(object-interpreter"let ob1 = extend EmptyObj with protected x = 1;in let ob2 = extend ob1 with protected x=2; in super.x end end");2
+
+;(object-interpreter"let ob1 = extend EmptyObj with protected x = 1;in let ob2 = extend ob1 with public getX = proc () self.x end; in (ob2.getX)end end");1
