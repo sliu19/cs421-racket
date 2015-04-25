@@ -5,8 +5,8 @@
 (define (reduce fn init list)
   (cond ((null? list) init)
         ((null? (cdr list)) (fn init (car list)))
-        (else (fn init 
-                  (reduce fn (car list) (cadr list) )))))
+        (else (reduce fn (fn init (car list)) 
+                  (cdr list) ))))
 
 (define-datatype member member?
   (mem
@@ -629,18 +629,5 @@
     (cond ((equal? x #t) 'true)
           ((equal? x #f) 'false)
           (else x))))
-
-(trace value-of)
-(trace object-interpreter)
-(trace templ-extend-multi-rec)
-(trace templ-get-payload)
-(trace templ-constructor)
-(trace extend-multi )
-
-
-(object-interpreter "letrec fact = proc (n)
-                       if =(n, 0) then 1 else *(n, (fact -(n, 1))) end end
-         in (fact 5) end" )
-
 
 (provide object-interpreter)
