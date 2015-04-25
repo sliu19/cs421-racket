@@ -638,9 +638,9 @@
 (trace extend-multi )
 
 
-(object-interpreter "letrec fact = proc (n)
-                       if =(n, 0) then 1 else *(n, (fact -(n, 1))) end end
-         in (fact 5) end" )
+;(object-interpreter "letrec fact = proc (n)
+;                       if =(n, 0) then 1 else *(n, (fact -(n, 1))) end end
+;         in (fact 5) end" )
 
 
 (provide object-interpreter)
