@@ -249,23 +249,6 @@
           (extend-env (car id-list) (value-of (car exp-list) env-ref) env-ref)
           (templ-extend-multi (cdr id-list) (cdr exp-list) env-ref)))))
 
-(define templ-extend-multi-rec
-  (lambda (id-list exp-list env-ref)
-    (if (or (null? id-list) (null? exp-list))
-        env-ref
-        (let* [(new-exp (car exp-list))
-               (new-value (if (expression? new-exp)
-                            (cases expression new-exp
-                              (proc-exp(arg-list body)
-                                      (list 'proc-type (list arg-list body) '()))
-                              (else (templ-constructor 'raw-exp new-exp '())))
-                            (templ-constructor 'raw-exp new-exp '())))]
-          (begin
-            (extend-env (car id-list) new-value env-ref)
-            (templ-extend-multi-rec (cdr id-list) (cdr exp-list) env-ref))))))
-
-
-
 (define templ-constructor
   (lambda (code payload opt)
     (list code payload opt)))
@@ -385,9 +368,8 @@
                   (let* ([extended-env (templ-extend-multi id-list exp-list env)])
                     (value-of body extended-env)))
          
-         (letrec-exp(id-list exp-list body)
-                 (let* ([extended-env (templ-extend-multi-rec id-list exp-list env)])
-                    (value-of body extended-env)))
+         ;(letrec-exp(id-list exp-list body)
+         ;         (value-of body (add-env-rec id-list exp-list env)))
          
          (exp-exp (first-exp rest-exp-list)
                   (let* ([proc-templ (value-of first-exp env)]
@@ -578,16 +560,3 @@
           (else x))))
 
 (trace value-of)
-(trace object-interpreter)
-(trace templ-extend-multi-rec)
-(trace templ-get-payload)
-(trace templ-constructor)
-(trace extend-multi )
-
-
-(object-interpreter "letrec fact = proc (n)
-                       if =(n, 0) then 1 else *(n, (fact -(n, 1))) end end
-         in (fact 5) end" )
-
-
-(provide object-interpreter)
