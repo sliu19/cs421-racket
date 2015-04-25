@@ -249,18 +249,6 @@
           (extend-env (car id-list) (value-of (car exp-list) env-ref) env-ref)
           (templ-extend-multi (cdr id-list) (cdr exp-list) env-ref)))))
 
-
-(define templ-extend-multi-rec
-  (lambda (id-list exp-list env-ref)
-    (if (or (null? id-list) (null? exp-list))
-        env-ref
-        (begin 
-          ;add exp without resolve it
-          (extend-env (car id-list) (car exp-list)  env-ref)
-          (templ-extend-multi-rec (cdr id-list) (cdr exp-list) env-ref)))))
-
-
-
 (define templ-constructor
   (lambda (code payload opt)
     (list code payload opt)))
@@ -361,9 +349,8 @@
                   (let* ([extended-env (templ-extend-multi id-list exp-list env)])
                     (value-of body extended-env)))
          
-         (letrec-exp(id-list exp-list body)
-                  (let* ([extended-env (templ-extend-multi-rec id-list exp-list env)])
-                    (value-of body extended-env)))
+         ;(letrec-exp(id-list exp-list body)
+         ;         (value-of body (add-env-rec id-list exp-list env)))
          
          (exp-exp (first-exp rest-exp-list)
                   (let* ([proc-templ (value-of first-exp env)]
@@ -423,7 +410,8 @@
               
               (templ-constructor 'terminal (reduce (parse-op op) exp1-val reduce-vals) '())))
          
-   
+         (compare-exp (op exp1 exp2)
+                      ((parse-op op) (value-of exp1 env) (value-of exp2 env)))
 
          (num-exp (num) (list 'terminal num '()))
          
@@ -526,6 +514,9 @@
             (val-of-obj-recursive templ-struct id-list is-self-or-super env))))))
           
 
-
+(define object-interpreter
+  (lambda (exp)
+    (let ([env-ref (newref (empty-env))])
+      (resolve-typed-value (value-of (scan&parse exp) env-ref) env-ref))))
 
 (trace value-of)
