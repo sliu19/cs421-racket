@@ -261,6 +261,10 @@
   (lambda (t)
     (cadr t)))
 
+(define templ-set-opt
+  (lambda (templ newopt)
+    (list (templ-get-code templ) (templ-get-payload templ) newopt)))
+
 (define templ-get-opt
   (lambda (t)
     (caddr t)))
@@ -349,6 +353,55 @@
                            (var-exp (id) id)
                            (else '()))))
              (else '() ))))))
+
+(define find-enclosing-env-helper 
+  (lambda (obj-struct id-list set-id prior-recursion-stack-env val-exp)
+    (cond ((null? id-list) (extend-env set-id val-exp 'terminal prior-recursion-stack-env)) ; (set A bla) A is looked up in global-env
+          ((null? (cdr id-list)) ; The identifier is found at this level of recursion
+            (let* ([found-templ (recursive-seek obj-struct (car id-list))] ;; TODO search recursive
+                   [obj-env-ref (car obj-struct)]
+                   [found-payload (templ-get-payload found-templ)])
+              (if (equal? found-payload 'undefined)
+                  ;; The id does not exist in the environments
+                  (templ-constructor 'terminal 'undefined '())
+                  ;; The id was found in the object environment
+                  (extend-env (car id-list) val-exp obj-env-ref))))
+                  ;(templ-constructor 'terminal obj-env-ref '()))))
+          (else ; There are more identifiers which must be resolved
+           (let* ([top-id (car id-list)]
+                  [rem-id (cdr id-list)]
+                  [obj-env (car obj-struct)]
+                  [found-templ (recursive-seek obj-struct top-id)]
+                  [found-payload (templ-get-payload found-templ)])
+             (cond ((equal? found-payload 'undefined) (templ-constructor 'terminal 'undefined '())) ; this level ID was not found
+                   (else (case (templ-get-code found-templ)
+                           ('obj-type (let ([new-obj-struct (templ-get-payload found-templ)]) ;recurse, passing in new object type and the current object environment
+                                        (find-enclosing-env-helper new-obj-struct rem-id set-id obj-env)))
+                           (else (templ-constructor 'terminal 'undefined '())))))))))) ;for non-objects, cannot for .ID operation
+                         
+                           
+              
+
+(define find-enclosing-env 
+  (lambda (expr set-id env val-exp)
+    (cond ((expression? expr)
+           (cases expression expr
+             ;; Type of expression -> object expr : Case for A.B.x etc.
+             (object (obj-expr id-list)
+                     (cases obj-exp obj-expr
+                       ;; Var type of obj-expr : A.B.x case as well
+                       (var-exp (var-id)
+                                ; What kind of value is extracted from the var-id
+                                (let ([found-templ (apply-env var-id env)])
+                                  (case (templ-get-code found-templ)
+                                    ('obj-type (let* ([obj-struct (templ-get-payload found-templ)]
+                                                      ; Since obj-exp is evaluated to object type, we can no longer look inside global env
+                                                      [id-environment (find-enclosing-env-helper obj-struct id-list set-id env val-exp)])
+                                                 id-environment))
+                                    (else (templ-constructor 'terminal 'undefined '())))))
+                       (else (templ-constructor 'terminal 'undefined '()))))
+             (else (templ-constructor 'terminal 'undefined '())))))))
+                                    
 
 (define value-of
   (lambda (exp  env)
@@ -442,20 +495,20 @@
     
          ; set-exp
          ; val exp also dynamic binding, so we do not evaluate here
-         ;(set-exp (exp1 val-exp)
-         ;         (let* ([calc-val (value-of val-exp env)] ; Assuming the value-of returns a template.
-         ;                [env-tmpl (find-enclosing-env exp1 env)]
-         ;                [env-ref (templ-get-payload env-tmpl)]
-         ;                [set-id (get-id-for-set exp1)]
-         ;                ;; set-id may be null. The implicit reference must be stored by identifier
-         ;                [protection (get-protection-val env-ref set-id)]
-         ;                [final-val (templ-set-protection calc-val protection)])
-         ;           (if (equal? env-ref 'undefined)
-         ;               ;; Set is invalid : either identifier is not found, or the protection prevents the identifier from being set.
-         ;               (templ-constructor 'terminal 'undefined '())
-         ;               (extend-env set-id final-val env))))
-         ;               
-         ;           
+         (set-exp (exp1 val-exp)
+                  (let* ([calc-val (value-of val-exp env)] ; Assuming the value-of returns a template.
+                         [set-id (get-id-for-set exp1)]
+                         [env-tmpl (find-enclosing-env exp1 set-id env val-exp)]) ;sneakily add the value as well
+                    env-tmpl))
+                         
+                         ;[env-ref (templ-get-payload env-tmpl)]
+                         ;; set-id may be null. The implicit reference must be stored by identifier
+                         ;[protection (templ-get-opt env-tmpl set-id)] ; This function is flawed
+                         ;[final-val (templ-set-opt calc-val protection)])
+                    ;(if (equal? env-ref 'undefined)
+                        ;; Set is invalid : either identifier is not found, or the protection prevents the identifier from being set.
+                        ;(templ-constructor 'terminal 'undefined '())
+                        ;(extend-env set-id final-val env))))
          
          (compare-equ-exp (exp1 exp2)
                           (let* ([v1 (resolve-typed-value (value-of exp1 env) env)]
