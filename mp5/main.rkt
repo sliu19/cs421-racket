@@ -5,8 +5,8 @@
 (define (reduce fn init list)
   (cond ((null? list) init)
         ((null? (cdr list)) (fn init (car list)))
-        (else (reduce fn (fn init (car list)) 
-                  (cdr list) ))))
+        (else (reduce fn (fn init (car list))
+                      (cdr list) ))))
 
 (define-datatype member member?
   (mem
@@ -415,7 +415,8 @@
                                                       ; Since obj-exp is evaluated to object type, we can no longer look inside global env
                                                       [id-environment (find-enclosing-env-helper obj-struct id-list set-id env val-exp)])
                                                  id-environment))
-                                    (else (templ-constructor 'terminal 'undefined '())))))
+                                    (else (extend-env set-id val-exp env)))))
+                                     ;(templ-constructor 'terminal 'undefined '())))))
                        (else (templ-constructor 'terminal 'undefined '()))))
              (else (templ-constructor 'terminal 'undefined '())))))))
                                     
@@ -516,7 +517,7 @@
          (set-exp (exp1 val-exp)
                   (let* ([calc-val (value-of val-exp env)] ; Assuming the value-of returns a template.
                          [set-id (get-id-for-set exp1)]
-                         [env-tmpl (find-enclosing-env exp1 set-id env val-exp)]) ;sneakily add the value as well
+                         [env-tmpl (find-enclosing-env exp1 set-id env calc-val)]) ;sneakily add the value as well
                     env-tmpl))
                          
                          ;[env-ref (templ-get-payload env-tmpl)]
