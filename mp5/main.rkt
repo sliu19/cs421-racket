@@ -631,13 +631,6 @@
           ((equal? x #f) 'false)
           (else x))))
 
-(trace value-of)
-(trace object-interpreter)
-(trace templ-extend-multi-rec)
-(trace templ-get-payload)
-(trace templ-constructor)
-(trace extend-multi )
-
 
 ;(object-interpreter "letrec fact = proc (n)
 ;                       if =(n, 0) then 1 else *(n, (fact -(n, 1))) end end
