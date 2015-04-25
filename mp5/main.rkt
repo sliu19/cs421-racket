@@ -5,8 +5,8 @@
 (define (reduce fn init list)
   (cond ((null? list) init)
         ((null? (cdr list)) (fn init (car list)))
-        (else (fn init 
-                  (reduce fn (car list) (cadr list) )))))
+        (else (reduce fn (fn init (car list)) 
+                  (cdr list) ))))
 
 (define-datatype member member?
   (mem
