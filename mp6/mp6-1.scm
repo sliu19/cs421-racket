@@ -22,7 +22,15 @@
 (define scan&parse
   (sllgen:make-string-parser spec grammar))
 
-(define in-port (open-input-file "mp6/dataset.txt"))
+(define the-data 'uninitialized)
+
+(define set-data
+  (lambda(new-data)
+    (set! the-data new-data)))
+
+(define get-data
+  (lambda () the-data))
+
 (define new-name-struct
   (lambda () '()))
 
@@ -133,7 +141,7 @@
                                       (query-msg(names depth id reply-to)
                                                 '5)
                                       (filename-msg(path) 
-                                                   (readFile path))
+                                                   (set-data (readFile path)))
                                       (else '5))
                                     (loop)])))))
 
@@ -157,9 +165,11 @@
 ;Steven Mario John Alex Minas
 ;;(trace parseInput)
 
-
-
 (display "111")
-(readFile 'e)
+(print the-data)
+
+(thread-send the-recipient (filename-msg "eee"))
+(thread-wait the-recipient)
+(print the-data)
 ;;(close-input-port in-port)
 
