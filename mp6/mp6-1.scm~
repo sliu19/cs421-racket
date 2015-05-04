@@ -1,7 +1,8 @@
 #lang racket
 (require eopl)
-;(require eopl)
 (require trace/calltrace-lib)
+(require "message-type.scm")
+
 ;;scanner
 ;;referred from textbook Appendix B
 (define spec
@@ -122,7 +123,19 @@
 (define readFile
  (lambda (path)
           (let [(input(file->lines "mp6/dataset.txt"))]
-              (parseInput input new-name-struct))))
+              (parseInput input (new-name-struct)))))
+
+(define the-recipient(thread (lambda ()
+                               (let loop()
+                                 (match(thread-receive)
+                                   [(? message-type? message)
+                                    (cases message-type? message
+                                      (query-msg(names depth id reply-to)
+                                                '5)
+                                      (filename-msg(path) 
+                                                   (readFile path)))
+                                    (loop)])))))
+                                    
 
 ; test their examples
 (define n1 (let* ([o1 (new-name-struct)]

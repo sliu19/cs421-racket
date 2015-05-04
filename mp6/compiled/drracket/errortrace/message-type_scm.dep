@@ -1,0 +1,1 @@
+("6.1.1" ("eff3f6573d7afcfa1e75c048c94ab53f72d27b02" . "b0c4522afa0e920d16f3d072b6d2e0266ac7c4da") (collects #"eopl" #"main.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"place.rkt") (collects #"racket" #"runtime-config.rkt"))
