@@ -125,17 +125,28 @@
           (let [(input(file->lines "dataset.txt"))]
               (parseInput input (new-name-struct)))))
 
-(define the-recipient(thread (lambda ()
-                               (let loop()
-                                 (match(thread-receive)
-                                   [(? message-type? message)
-                                    (cases message-type message
-                                      (query-msg(names depth id reply-to)
-                                                '5)
-                                      (filename-msg(path) 
-                                                   (readFile path))
-                                      (else '5))
-                                    (loop)])))))
+
+(define handle-query-message
+  (lambda (store-id names depth msg-id reply-to)
+    (let ([name-struct TODO:GETFROMSTORE]
+          [name1 (car names)]
+          [name2 (cadr names)]
+          [result-list (common-friends name-struct name1 name2 depth)]
+          [response (response-msg reply-to result-list)])
+      (thread-send ??? response))))
+
+(define the-recipient  (let ([store-id TODO:GenerateStoreID])
+                            (thread (lambda ()
+                                   (let loop()
+                                     (match(thread-receive)
+                                       [(? message-type? message)
+                                        (cases message-type message
+                                          (query-msg(names depth id reply-to)
+                                                    (handle-query-message store-id names depth id reply-to))
+                                          (filename-msg(path) 
+                                                       (readFile path))
+                                          (else '5))
+                                        (loop)]))))))
 
 
 ; test their examples
