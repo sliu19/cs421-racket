@@ -22,7 +22,15 @@
 (define scan&parse
   (sllgen:make-string-parser spec grammar))
 
-(define in-port (open-input-file "mp6/dataset.txt"))
+(define the-data 'uninitialized)
+
+(define set-data
+  (lambda(new-data)
+    (set! the-data new-data)))
+
+(define get-data
+  (lambda () the-data))
+
 (define new-name-struct
   (lambda () '()))
 
@@ -69,7 +77,6 @@
                          [all-depth-remove-dup (remove-duplicates all-depths-recursive-friends)])
                     (remove-duplicates all-depth-remove-dup)))))))
  
-; TODO: Common (X,Y) cannot contain X and Y
 (define common-friends
   (lambda (name-struct name1 name2 depth)
     (let ([friends1 (aggregate-friends name-struct name1 depth)]
@@ -125,28 +132,26 @@
           (let [(input(file->lines "dataset.txt"))]
               (parseInput input (new-name-struct)))))
 
-
 (define handle-query-message
-  (lambda (store-id names depth msg-id reply-to)
-    (let ([name-struct TODO:GETFROMSTORE]
+  (lambda (names depth msg-id reply-to)
+    (let ([name-struct (get-data)]
           [name1 (car names)]
           [name2 (cadr names)]
           [result-list (common-friends name-struct name1 name2 depth)]
           [response (response-msg reply-to result-list)])
-      (thread-send ??? response))))
+      (thread-send reply-to response))))
 
-(define the-recipient  (let ([store-id TODO:GenerateStoreID])
-                            (thread (lambda ()
+(define the-recipient (thread (lambda ()
                                    (let loop()
                                      (match(thread-receive)
                                        [(? message-type? message)
                                         (cases message-type message
                                           (query-msg(names depth id reply-to)
-                                                    (handle-query-message store-id names depth id reply-to))
+                                                    (handle-query-message names depth id reply-to))
                                           (filename-msg(path) 
-                                                       (readFile path))
+                                                       (set-data (readFile path)))
                                           (else '5))
-                                        (loop)]))))))
+                                        (loop)])))))
 
 
 ; test their examples
@@ -168,9 +173,11 @@
 ;Steven Mario John Alex Minas
 ;;(trace parseInput)
 
-
-
 (display "111")
-(readFile 'e)
+(print the-data)
+
+(thread-send the-recipient (filename-msg "eee"))
+(thread-wait the-recipient)
+(print the-data)
 ;;(close-input-port in-port)
 
