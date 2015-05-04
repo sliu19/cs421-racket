@@ -1,0 +1,21 @@
+#lang eopl
+;(require eopl)
+(require trace/calltrace-lib)
+;;scanner
+;;referred from textbook Appendix B
+(define spec
+  '((whitespace (whitespace) skip)
+    (comment ("%" (arbno (not #\newline))) skip)
+    (identifier (letter (arbno (or letter digit))) symbol)
+    ))
+
+
+(define grammar
+  '((Friend (arbno identifier ":" (arbno identifier) ";") friendship)
+    ))
+
+
+;;sllgen from textbook appendix B
+(sllgen:make-define-datatypes spec grammar)
+(define scan&parse
+  (sllgen:make-string-parser spec grammar))
