@@ -133,12 +133,12 @@
               (parseInput input (new-name-struct)))))
 
 (define handle-query-message
-  (lambda (names depth msg-id reply-to)
+  (lambda (names depth msg-id reply-id)
     (let ([name-struct (get-data)]
           [name1 (car names)]
           [name2 (cadr names)]
           [result-list (common-friends name-struct name1 name2 depth)]
-          [response (response-msg reply-to result-list)])
+          [response (response-msg reply-id result-list)])
       (thread-send reply-to response))))
 
 (define the-recipient (thread (lambda ()
