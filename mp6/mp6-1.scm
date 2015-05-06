@@ -50,7 +50,7 @@
 
 (define name-struct-insert
   (lambda (person-name friends-list name-struct)
-    (cons (list person-name friends-list) name-struct)))
+      (cons (list person-name friends-list) name-struct)))
  
 (define name-struct-search
   (lambda (name-struct name)
@@ -129,13 +129,15 @@
 (define handle-query-message
   (lambda (names depth msg-id reply-to)
     (let* ([name-struct (get-data)]
-           [name1 (car names)]
-           [name2 (cdr names)]
+           [name1 (string->symbol (car names))]
+           [name2 (string->symbol (cdr names))]
            [result-list (common-friends name-struct name1 name2 depth)]
            [response (response-msg msg-id result-list)])
       (begin
-        (thread-send reply-to response)
-        (display result-list)))))
+        ;(display (aggregate-friends name-struct name1 depth))
+        ;(display (aggregate-friends name-struct name2 depth))
+        (thread-send reply-to response)))))
+        ;(display result-list)))))
 
 (define the-recipient (thread (lambda ()
                                    (let loop()
@@ -155,7 +157,7 @@
 
 (thread-send the-recipient(filename-msg "test.txt"))
 
-(thread-send the-recipient (query-msg (cons "Name626" "Name2387") 8 0 (current-thread)))
+(thread-send the-recipient (query-msg (cons "Name626" "Name2387") 1 0 (current-thread)))
 
 
 ;(thread-send the-recipient (query-msg (cons "Name2250" "Name2121") 13 1 (current-thread)))
