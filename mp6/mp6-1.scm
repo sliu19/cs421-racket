@@ -81,7 +81,9 @@
   (lambda (name-struct name1 name2 depth)
     (let ([friends1 (aggregate-friends name-struct name1 depth)]
           [friends2 (aggregate-friends name-struct name2 depth)])
-      (intersect friends1 friends2 (list name1 name2)))))
+      (begin
+        (print name2)
+      (intersect friends1 friends2 (list name1 name2))))))
  
 (define order-by-length
   (lambda (l1 l2)
@@ -113,14 +115,6 @@
          [longer (cadr ordering)])
     (intersect-helper shorter longer blacklist '())))
  
-(define x (new-name-struct))
-(define y (name-struct-insert 'name1 (list 'name2 'name3) x))
-(define yy (name-struct-insert 'name2 (list 'name4 'name3) y))
-(define yyy (name-struct-insert 'name3 (list 'name5) yy))
-(define yyyy (name-struct-insert 'name5 (list 'name1) yyy))
-(define z (name-struct-insert 'name6 (list 'name2) yyyy))
- 
-
 (define parseInput
   (lambda (listsOfStrings dataset)
     (if(null? (cdr listsOfStrings))
@@ -129,17 +123,19 @@
 
 (define readFile
  (lambda (path)
-          (let [(input(file->lines "dataset.txt"))]
+          (let [(input(file->lines path))]
               (parseInput input (new-name-struct)))))
 
 (define handle-query-message
   (lambda (names depth msg-id reply-to)
     (let* ([name-struct (get-data)]
            [name1 (car names)]
-           [name2 (cadr names)]
+           [name2 (cdr names)]
            [result-list (common-friends name-struct name1 name2 depth)]
-           [response (response-msg reply-to result-list)])
-      (thread-send reply-to response))))
+           [response (response-msg msg-id result-list)])
+      (begin
+        (thread-send reply-to response)
+        (display result-list)))))
 
 (define the-recipient (thread (lambda ()
                                    (let loop()
@@ -154,30 +150,28 @@
                                         (loop)])))))
 
 
-; test their examples
-(define n1 (let* ([o1 (new-name-struct)]
-                  [o2 (name-struct-insert 'Minas (list 'Steven 'Sihan 'Alex) o1)]
-                  [o3 (name-struct-insert 'Steven (list 'Minas 'Sihan 'Mario) o2)]
-                  [o4 (name-struct-insert 'Sihan (list 'Minas 'Steven 'Peter) o3)]
-                  [o5 (name-struct-insert 'Peter (list 'Sihan 'John) o4)]
-                  [o6 (name-struct-insert 'Alex (list 'Minas) o5)]
-                  [o7 (name-struct-insert 'Mario (list 'Peter) o6)])
-             o7))
-(common-friends n1 'Minas 'Sihan 1)
-;Steven
-(common-friends n1 'Minas 'Sihan 2)
-;Steven Mario Peter Alex
-(common-friends n1 'Sihan 'Minas 2)
-;Steven Mario Peter Alex
-(common-friends n1 'Sihan 'Peter 3)
-;Steven Mario John Alex Minas
-;;(trace parseInput)
 
-(display "111")
-(print the-data)
+(provide the-recipient)
 
-(thread-send the-recipient (filename-msg "eee"))
-(thread-wait the-recipient)
-(print the-data)
-;;(close-input-port in-port)
+(thread-send the-recipient(filename-msg "test.txt"))
 
+(thread-send the-recipient (query-msg (cons "Name626" "Name2387") 8 0 (current-thread)))
+
+
+;(thread-send the-recipient (query-msg (cons "Name2250" "Name2121") 13 1 (current-thread)))
+
+;(thread-send the-recipient (query-msg (cons "Name111" "Name1533") 16 2 (current-thread)))
+
+;(thread-send the-recipient (query-msg (cons "Name1364" "Name1533") 16 3 (current-thread)))
+
+;(thread-send the-recipient (query-msg (cons "Name1364" "Name1533") 16 4 (current-thread)))
+
+;(thread-send the-recipient (query-msg (cons "Name1364" "Name1533") 16 5 (current-thread)))
+
+;(thread-send the-recipient (query-msg (cons "Name1364" "Name1533") 16 6 (current-thread)))
+
+;(thread-send the-recipient (query-msg (cons "Name1364" "Name1533") 16 7 (current-thread)))
+
+;(thread-send the-recipient (query-msg (cons "Name1364" "Name1533") 16 8 (current-thread)))
+
+;(thread-send the-recipient (query-msg (cons "Name1364" "Name1533") 16 9 (current-thread)))
