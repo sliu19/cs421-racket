@@ -82,7 +82,7 @@
     (let ([friends1 (aggregate-friends name-struct name1 depth)]
           [friends2 (aggregate-friends name-struct name2 depth)])
       (begin
-        (print name2)
+        ;(print name2)
       (intersect friends1 friends2 (list name1 name2))))))
  
 (define order-by-length
