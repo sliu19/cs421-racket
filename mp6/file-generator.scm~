@@ -4,10 +4,10 @@
 #lang racket
 
 ; How many names.
-(define name-count 10)
+(define name-count 500)
 
 ; How many friends per person.
-(define connectivity 3)
+(define connectivity 10)
 
 ; Returns a new list which is a copy of lst
 ; but with the elements at positions i and j
