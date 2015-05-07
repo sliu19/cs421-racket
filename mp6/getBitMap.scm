@@ -1,7 +1,6 @@
 #lang racket
 (require eopl)
 (require trace/calltrace-lib)
-(define nameListLength 0)
 
 
 (define spec
@@ -25,6 +24,7 @@
 (define index 1)
 (define nameVector #())
 (define friendshipVector #())
+(define nameListLength 0)
 (define getNewIndex 
   (lambda ()
     (begin
@@ -128,10 +128,7 @@
               (preparseInput input)
               (set! nameListLength (vector-length nameVector))
               (parseInput input)
-              (set! friendshipVector (vector-append friendshipVector #(-(vector-length nameVector) nameListLength)(0)))))))
-
-(trace friendlist->bitMap)
-(trace parseInput)
+              (set! friendshipVector (vector-append friendshipVector (vector 0)))))))
 
 
 (define logarithm
@@ -139,7 +136,7 @@
 
 (define bitmap-get-lsb-idx
   (lambda (bitmap)
-    (inexact->exact (logarithm (bitwise-and bitmap (* -1 bitmap)) 2))))
+    (inexact->exact (round (logarithm (bitwise-and bitmap (* -1 bitmap)) 2)))))
 
 (define bitmap-idx-set?
   (lambda (bitmap idx)
@@ -183,13 +180,30 @@
     (cond ((equal? depth-remaining 0) aggregator)
           ((equal? curr-traversing-bitmap 0) aggregator) ; Assumes default bitmap is zero
           (else (let* ([rec-indices (bitmap-get-set-indices curr-traversing-bitmap '())] ; Certainly valid since bitmap != 0
-                       [index-to-bitmap (lambda (idx) idx)] ;; which var
+                       [index-to-bitmap (lambda (idx) (vector-ref bitmap-vector idx))] ;; which var
                        [rec-bitmaps (map index-to-bitmap rec-indices)]
                        [next-depth-traverse (lambda (child-bmp) (traverse-bitmap child-bmp (- depth-remaining 1) aggregator bitmap-vector))]
                        [recursion-bitmaps (map next-depth-traverse rec-bitmaps)]
                        [combined-rec-bmps (bitmap-list-combine aggregator recursion-bitmaps)])
                   combined-rec-bmps)))))
-                  
-(readFile "test.txt")
-(print nameVector)
-(print friendshipVector)
+
+(define empty-bitmap 0)
+
+(define traverse-friends
+  (lambda (name depth)
+    (let* ([user-id (hash-ref nameTable name '())])
+      (cond ((null? user-id) (empty-bitmap))
+            (else (let ([id-bitmap (vector-ref friendshipVector user-id)])
+                  (traverse-bitmap id-bitmap (- depth 1) id-bitmap friendshipVector)))))))
+
+(define bmp-to-namelist
+  (lambda (bmp)
+    (let* ([indices (bitmap-get-set-indices bmp '())]
+           [names (map (lambda (idx) (vector-ref nameVector idx)) indices)])
+      names)))
+       
+(trace logarithm)
+(readFile "doc-example")
+;(print nameVector)
+;(print friendshipVector)
+(bmp-to-namelist (traverse-friends 'Mario 1))
