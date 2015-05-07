@@ -24,7 +24,6 @@
 (define index 1)
 (define nameVector #())
 (define friendshipVector #())
-(define nameListLength 0)
 (define getNewIndex 
   (lambda ()
     (begin
@@ -88,15 +87,15 @@
       (friendship (owner list) list))))
 
 
-
 (define friendlist->bitMap
   (lambda (list)
     (begin
       (let* [(listLength (length list))
             (emptylist (replicate 0 listLength))
-            (2-list (replicate 2 listLength))]
+            (2-list (replicate 2 listLength))
+            (tableList (replicate nameTable listLength))]
         (begin
-          (fold-left bitwise-ior (map expt 2-list (map mapNames list)))))))) 
+          (fold-left bitwise-ior (map expt 2-list (map hash-ref tableList list)))))))) 
 
 
 ;;get friendList bitMap Vector
@@ -128,13 +127,11 @@
             
             (begin
               (preparseInput input)
-              (set! nameListLength (vector-length nameVector))
-              (parseInput input)
-              (set! friendshipVector (vector-append friendshipVector #(-(vector-length nameVector) nameListLength)(0)))))))
+              (parseInput input)))))
 
 (trace friendlist->bitMap)
 (trace parseInput)
 
-(readFile "test.txt")
+(readFile "dataset.txt")
 (print nameVector)
 (print friendshipVector)
