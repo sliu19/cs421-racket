@@ -185,7 +185,7 @@
                        [next-depth-traverse (lambda (child-bmp) (traverse-bitmap child-bmp (- depth-remaining 1) aggregator bitmap-vector))]
                        [recursion-bitmaps (map next-depth-traverse rec-bitmaps)]
                        [combined-rec-bmps (bitmap-list-combine aggregator recursion-bitmaps)])
-                  combined-rec-bmps)))))
+                  (bitwise-ior curr-traversing-bitmap combined-rec-bmps))))))
 
 (define empty-bitmap 0)
 
@@ -195,16 +195,31 @@
       (cond ((null? user-id) (empty-bitmap))
             (else (let ([id-bitmap (vector-ref friendshipVector user-id)])
                   (traverse-bitmap id-bitmap (- depth 1) id-bitmap friendshipVector)))))))
+
+(define add-name-to-bmp
+  (lambda (bmp name)
+    (let ([name-id (hash-ref nameTable name '())])
+      (cond ((null? name-id) bmp)
+            (else (bitmap-set-bit bmp name-id))))))
+     
 (define create-blacklist
-  (lambda name-
+  (lambda (name-list)
+    (fold-right add-name-to-bmp 0 name-list)))
+
+(define bitmap-set-bit
+  (lambda (idx bitmap)
+    (bitwise-ior bitmap (expt 2 idx))))
 
 (define mutual-friends
   (lambda (name1 name2 depth)
     (let* ([bmp1 (traverse-friends name1 depth)]
            [bmp2 (traverse-friends name2 depth)]
-           ;[blacklist (create-blacklist 
-           [mutual (bitwise-and bmp1 bmp2)])
-      mutual)))
+           [id1 (hash-ref nameTable name1)]
+           [id2 (hash-ref nameTable name2)]
+           [mutual (bitwise-and bmp1 bmp2)]
+           [minus1 (bitmap-clear-bit id1 mutual)]
+           [minus2 (bitmap-clear-bit id2 minus1)])
+      minus2)))
 
 (define bmp-to-namelist
   (lambda (bmp)
@@ -212,9 +227,12 @@
            [names (map (lambda (idx) (vector-ref nameVector idx)) indices)])
       names)))
        
-(trace logarithm)
+;(trace logarithm)
+;(trace traverse-bitmap)
 (readFile "doc-example")
 (print nameVector)
-(print friendshipVector)
+;(print friendshipVector)
+(bmp-to-namelist (mutual-friends 'Peter 'Sihan 3))
 (bmp-to-namelist (traverse-friends 'Sihan 2))
-(bmp-to-namelist (traverse-friends 'Minas 2))
+(bmp-to-namelist (traverse-friends 'Peter 2))
+;(bmp-to-namelist (traverse-friends 'Sihan 3))
