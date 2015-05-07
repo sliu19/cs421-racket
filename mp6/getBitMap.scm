@@ -24,7 +24,6 @@
 (define index 1)
 (define nameVector #())
 (define friendshipVector #())
-(define nameListLength 0)
 (define getNewIndex 
   (lambda ()
     (begin
@@ -88,15 +87,15 @@
       (friendship (owner list) list))))
 
 
-
 (define friendlist->bitMap
   (lambda (list)
     (begin
       (let* [(listLength (length list))
             (emptylist (replicate 0 listLength))
-            (2-list (replicate 2 listLength))]
+            (2-list (replicate 2 listLength))
+            (tableList (replicate nameTable listLength))]
         (begin
-          (fold-left bitwise-ior (map expt 2-list (map mapNames list)))))))) 
+          (fold-left bitwise-ior (map expt 2-list (map hash-ref tableList list)))))))) 
 
 
 ;;get friendList bitMap Vector
@@ -128,13 +127,68 @@
             
             (begin
               (preparseInput input)
-              (set! nameListLength (vector-length nameVector))
-              (parseInput input)
-              (set! friendshipVector (vector-append friendshipVector #(-(vector-length nameVector) nameListLength)(0)))))))
+              (parseInput input)))))
 
 (trace friendlist->bitMap)
 (trace parseInput)
 
+
+(define logarithm
+  (lambda (val base) (/ (log val) (log base))))
+
+(define bitmap-get-lsb-idx
+  (lambda (bitmap)
+    (inexact->exact (logarithm (bitwise-and bitmap (* -1 bitmap)) 2))))
+
+(define bitmap-idx-set?
+  (lambda (bitmap idx)
+    (let ([val (bitwise-and (expt 2 idx) bitmap)])
+      (cond ((equal? val 0) #f)
+            (else #t)))))
+
+(define bitmap-clear-bit
+  (lambda (idx bitmap)
+    (cond ((bitmap-idx-set? bitmap idx) 
+            (let ([mask (bitwise-not (expt 2 idx))])
+              (bitwise-and mask bitmap)))
+          (else bitmap))))
+
+(define bitmap-set-idx-iterator
+  (lambda (bitmap)
+    (cond ((= 0 bitmap) '())
+          (else (let* ([lsb (bitmap-get-lsb-idx bitmap)]
+                       [new-bitmap (bitmap-clear-bit lsb bitmap)])
+                  (list lsb new-bitmap))))))
+
+(define bitmap-get-set-indices
+  (lambda (bitmap aggregator)
+    (cond ((= 0 bitmap) aggregator)
+          (else (let* ([idx (bitmap-get-lsb-idx bitmap)]
+                       [new-bmp (bitmap-clear-bit idx bitmap)])
+                  (bitmap-get-set-indices new-bmp (append (list idx) aggregator)))))))
+
+
+(define fold-right
+  (lambda (func init arg-list)
+    (cond ((null? arg-list) init)
+          (else (fold-right func (func init (car arg-list)) (cdr arg-list))))))
+
+(define bitmap-list-combine
+  (lambda (init-bmp bmp-list)
+    (fold-right bitwise-ior init-bmp bmp-list)))
+
+(define traverse-bitmap
+  (lambda (curr-traversing-bitmap depth-remaining aggregator bitmap-vector)
+    (cond ((equal? depth-remaining 0) aggregator)
+          ((equal? curr-traversing-bitmap 0) aggregator) ; Assumes default bitmap is zero
+          (else (let* ([rec-indices (bitmap-get-set-indices curr-traversing-bitmap '())] ; Certainly valid since bitmap != 0
+                       [index-to-bitmap (lambda (idx) idx)] ;; which var
+                       [rec-bitmaps (map index-to-bitmap rec-indices)]
+                       [next-depth-traverse (lambda (child-bmp) (traverse-bitmap child-bmp (- depth-remaining 1) aggregator bitmap-vector))]
+                       [recurision-bitmaps (map next-depth-traverse rec-bitmaps)]
+                       [combined-rec-bmps (bitmap-list-combine aggregator recursion-bitmaps)])
+                  combined-rec-bmps)))))
+                  
 (readFile "test.txt")
 (print nameVector)
 (print friendshipVector)
