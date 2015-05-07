@@ -187,6 +187,7 @@
 (define traverse-bitmap
   (lambda (curr-traversing-bitmap depth-remaining aggregator bitmap-vector)
     (cond ((equal? depth-remaining 0) (bitwise-ior aggregator curr-traversing-bitmap))
+          ((equal? aggregator (- (expt 2 (+ 1 (vector-length nameVector))) 1)) aggregator)
           ((equal? curr-traversing-bitmap 0) (bitwise-ior aggregator curr-traversing-bitmap)) ; Assumes default bitmap is zero
           (else (let* ([rec-indices (bitmap-get-set-indices curr-traversing-bitmap '())] ; Certainly valid since bitmap != 0
                        [index-to-bitmap (lambda (idx) (vector-ref bitmap-vector idx))] ;; which var
@@ -244,5 +245,5 @@
 ;(print nameVector)
 ;(print friendshipVector)
 ;(bmp-to-namelist (mutual-friends 'Minas 'Sihan 1))
-(bmp-to-namelist (mutual-friends 'Name556 'Name1117 6))
+(bmp-to-namelist (mutual-friends 'Name556 'Name1117 8))
 ;
