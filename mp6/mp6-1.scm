@@ -131,10 +131,6 @@
               (preparseInput input)
               (set! nameListLength (vector-length nameVector))
               (parseInput input)
-              (display '-)
-              (display (vector-length nameVector))
-              (display '-)
-              (display nameListLength)
               (set! friendshipVector (extraZeros (- (vector-length nameVector) nameListLength ) friendshipVector))))))
 
 (define logarithm
@@ -189,6 +185,7 @@
 (define traverse-bitmap
   (lambda (curr-traversing-bitmap depth-remaining aggregator bitmap-vector)
     (cond ((equal? depth-remaining 0) (bitwise-ior aggregator curr-traversing-bitmap))
+          ;((equal? aggregator (- (expt 2 (+ 1 (vector-length nameVector))) 1)) aggregator)
           ((equal? curr-traversing-bitmap 0) (bitwise-ior aggregator curr-traversing-bitmap)) ; Assumes default bitmap is zero
           (else (let* ([rec-indices (bitmap-get-set-indices curr-traversing-bitmap '())] ; Certainly valid since bitmap != 0
                        [index-to-bitmap (lambda (idx) (vector-ref bitmap-vector idx))] ;; which var
@@ -243,10 +240,9 @@
   (lambda (names depth msg-id reply-to)
     (let* ([name1 (string->symbol (car names))]
            [name2 (string->symbol (cdr names))]
-           [result-list (bmp-to-namelist(mutual-friends name1 name2 depth))]
+           [result-list (map symbol->string (bmp-to-namelist(mutual-friends name1 name2 depth)))]
            [response (response-msg msg-id result-list)])
       (begin
-        (display result-list)
         (thread-send reply-to response)))))
         
 
@@ -266,9 +262,9 @@
 
 (provide the-recipient)
 
-(thread-send the-recipient(filename-msg "test.txt"))
+(thread-send the-recipient(filename-msg "doc-example"))
 
-(thread-send the-recipient (query-msg (cons "Name626" "Name2387") 1 0 (current-thread)))
+(thread-send the-recipient (query-msg (cons "Peter" "Sihan") 3 0 (current-thread)))
 
 
 ;(thread-send the-recipient (query-msg (cons "Name2250" "Name2121") 13 1 (current-thread)))
