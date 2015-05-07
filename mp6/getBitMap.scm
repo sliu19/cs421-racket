@@ -1,6 +1,7 @@
 #lang racket
 (require eopl)
 (require trace/calltrace-lib)
+(define nameListLength 0)
 
 
 (define spec
@@ -92,11 +93,9 @@
     (begin
       (let* [(listLength (length list))
             (emptylist (replicate 0 listLength))
-            (2-list (replicate 2 listLength))
-            (tableList (replicate nameTable listLength))]
+            (2-list (replicate 2 listLength))]
         (begin
-          (fold-left bitwise-ior (map expt 2-list (map hash-ref tableList list)))))))) 
-
+          (fold-left bitwise-ior (map expt 2-list (map mapNames list)))))))) 
 
 ;;get friendList bitMap Vector
 (define parseInput
@@ -127,7 +126,9 @@
             
             (begin
               (preparseInput input)
-              (parseInput input)))))
+              (set! nameListLength (vector-length nameVector))
+              (parseInput input)
+              (set! friendshipVector (vector-append friendshipVector #(-(vector-length nameVector) nameListLength)(0)))))))
 
 (trace friendlist->bitMap)
 (trace parseInput)
@@ -185,7 +186,7 @@
                        [index-to-bitmap (lambda (idx) idx)] ;; which var
                        [rec-bitmaps (map index-to-bitmap rec-indices)]
                        [next-depth-traverse (lambda (child-bmp) (traverse-bitmap child-bmp (- depth-remaining 1) aggregator bitmap-vector))]
-                       [recurision-bitmaps (map next-depth-traverse rec-bitmaps)]
+                       [recursion-bitmaps (map next-depth-traverse rec-bitmaps)]
                        [combined-rec-bmps (bitmap-list-combine aggregator recursion-bitmaps)])
                   combined-rec-bmps)))))
                   
