@@ -124,13 +124,16 @@
 (define readFile
  (lambda (path)
           (let [(input(file->lines path))]
-            
+             
             (begin
               (preparseInput input)
               (set! nameListLength (vector-length nameVector))
               (parseInput input)
-              (set! friendshipVector (vector-append friendshipVector (vector 0)))))))
-
+              (display '-)
+              (display (vector-length nameVector))
+              (display '-)
+              (display nameListLength)
+              (set! friendshipVector (extraZeros (- (vector-length nameVector) nameListLength ) friendshipVector))))))
 
 (define logarithm
   (lambda (val base) (/ (log val) (log base))))
@@ -166,6 +169,11 @@
                        [new-bmp (bitmap-clear-bit idx bitmap)])
                   (bitmap-get-set-indices new-bmp (append (list idx) aggregator)))))))
 
+(define extraZeros
+  (lambda (number list)
+    (if (equal? number 0)
+        list
+        (extraZeros (- number 1) (vector-append list (vector 0))))))
 
 (define fold-right
   (lambda (func init arg-list)
@@ -177,21 +185,16 @@
     (fold-right bitwise-ior init-bmp bmp-list)))
 
 (define traverse-bitmap
-  (lambda (curr-traversing-bitmap depth-remaining aggregator bitmap-vector user-id)
+  (lambda (curr-traversing-bitmap depth-remaining aggregator bitmap-vector)
     (cond ((equal? depth-remaining 0) (bitwise-ior aggregator curr-traversing-bitmap))
-          ((equal? curr-traversing-bitmap 0) (bitwise-ior aggregator curr-traversing-bitmap)); Assumes default bitmap is zero
-          ;;check if this-id is in stopNameTable
-          ((false? (equal? "not here" (hash-ref stopNameTable user-id "not here"))) (bitwise-ior aggregator curr-traversing-bitmap))
-          (else 
-           (begin
-             (hash-set! stopNameTable user-id 1)
-             (let* ([rec-indices (bitmap-get-set-indices curr-traversing-bitmap '())] ; Certainly valid since bitmap != 0
-                    [index-to-bitmap (lambda (idx) (vector-ref bitmap-vector idx))] ;; which var
-                    [rec-bitmaps (map index-to-bitmap rec-indices)]
-                    [next-depth-traverse (lambda (child-bmp) (traverse-bitmap child-bmp (- depth-remaining 1) aggregator bitmap-vector rec-indices))]
-                    [recursion-bitmaps (map next-depth-traverse rec-bitmaps)]
-                    [combined-rec-bmps (bitmap-list-combine aggregator recursion-bitmaps)])
-               combined-rec-bmps))))))
+          ((equal? curr-traversing-bitmap 0) (bitwise-ior aggregator curr-traversing-bitmap)) ; Assumes default bitmap is zero
+          (else (let* ([rec-indices (bitmap-get-set-indices curr-traversing-bitmap '())] ; Certainly valid since bitmap != 0
+                       [index-to-bitmap (lambda (idx) (vector-ref bitmap-vector idx))] ;; which var
+                       [rec-bitmaps (map index-to-bitmap rec-indices)]
+                       [next-depth-traverse (lambda (child-bmp) (traverse-bitmap child-bmp (- depth-remaining 1) aggregator bitmap-vector))]
+                       [recursion-bitmaps (map next-depth-traverse rec-bitmaps)]
+                       [combined-rec-bmps (bitmap-list-combine aggregator recursion-bitmaps)])
+                  (bitwise-ior curr-traversing-bitmap combined-rec-bmps))))))
 
 (define empty-bitmap 0)
 
@@ -200,7 +203,7 @@
     (let* ([user-id (hash-ref nameTable name '())])
       (cond ((null? user-id) (empty-bitmap))
             (else (let ([id-bitmap (vector-ref friendshipVector user-id)])
-                  (traverse-bitmap id-bitmap (- depth 1) id-bitmap friendshipVector user-id)))))))
+                  (traverse-bitmap id-bitmap (- depth 1) id-bitmap friendshipVector)))))))
 
 (define add-name-to-bmp
   (lambda (bmp name)
@@ -233,13 +236,13 @@
            [names (map (lambda (idx) (vector-ref nameVector idx)) indices)])
       names)))
        
-;(trace logarithm)
-;(trace traverse-bitmap)
-(readFile "doc-example")
-(print nameVector)
+;(readFile "doc-example")
+;(print nameVector)
 ;(print friendshipVector)
-(bmp-to-namelist (mutual-friends 'Peter 'Sihan 3))
-(bmp-to-namelist (traverse-friends 'Sihan 2))
-(bmp-to-namelist (traverse-friends 'Peter 2))
 ;(bmp-to-namelist (traverse-friends 'Sihan 3))
-;(bmp-to-namelist (traverse-friends 'Minas 6))
+(readFile "test.txt")
+;(print nameVector)
+;(print friendshipVector)
+;(bmp-to-namelist (mutual-friends 'Minas 'Sihan 1))
+(bmp-to-namelist (mutual-friends 'Name556 'Name1117 6))
+;
