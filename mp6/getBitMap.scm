@@ -25,6 +25,7 @@
 (define nameVector #())
 (define friendshipVector #())
 (define nameListLength 0)
+(define stopNameTable (make-hash))
 (define getNewIndex 
   (lambda ()
     (begin
@@ -176,16 +177,21 @@
     (fold-right bitwise-ior init-bmp bmp-list)))
 
 (define traverse-bitmap
-  (lambda (curr-traversing-bitmap depth-remaining aggregator bitmap-vector)
+  (lambda (curr-traversing-bitmap depth-remaining aggregator bitmap-vector user-id)
     (cond ((equal? depth-remaining 0) (bitwise-ior aggregator curr-traversing-bitmap))
-          ((equal? curr-traversing-bitmap 0) (bitwise-ior aggregator curr-traversing-bitmap)) ; Assumes default bitmap is zero
-          (else (let* ([rec-indices (bitmap-get-set-indices curr-traversing-bitmap '())] ; Certainly valid since bitmap != 0
-                       [index-to-bitmap (lambda (idx) (vector-ref bitmap-vector idx))] ;; which var
-                       [rec-bitmaps (map index-to-bitmap rec-indices)]
-                       [next-depth-traverse (lambda (child-bmp) (traverse-bitmap child-bmp (- depth-remaining 1) aggregator bitmap-vector))]
-                       [recursion-bitmaps (map next-depth-traverse rec-bitmaps)]
-                       [combined-rec-bmps (bitmap-list-combine aggregator recursion-bitmaps)])
-                  (bitwise-ior curr-traversing-bitmap combined-rec-bmps))))))
+          ((equal? curr-traversing-bitmap 0) (bitwise-ior aggregator curr-traversing-bitmap)); Assumes default bitmap is zero
+          ;;check if this-id is in stopNameTable
+          ((false? (equal? "not here" (hash-ref stopNameTable user-id "not here"))) (bitwise-ior aggregator curr-traversing-bitmap))
+          (else 
+           (begin
+             (hash-set! stopNameTable user-id 1)
+             (let* ([rec-indices (bitmap-get-set-indices curr-traversing-bitmap '())] ; Certainly valid since bitmap != 0
+                    [index-to-bitmap (lambda (idx) (vector-ref bitmap-vector idx))] ;; which var
+                    [rec-bitmaps (map index-to-bitmap rec-indices)]
+                    [next-depth-traverse (lambda (child-bmp) (traverse-bitmap child-bmp (- depth-remaining 1) aggregator bitmap-vector rec-indices))]
+                    [recursion-bitmaps (map next-depth-traverse rec-bitmaps)]
+                    [combined-rec-bmps (bitmap-list-combine aggregator recursion-bitmaps)])
+               combined-rec-bmps))))))
 
 (define empty-bitmap 0)
 
@@ -194,7 +200,7 @@
     (let* ([user-id (hash-ref nameTable name '())])
       (cond ((null? user-id) (empty-bitmap))
             (else (let ([id-bitmap (vector-ref friendshipVector user-id)])
-                  (traverse-bitmap id-bitmap (- depth 1) id-bitmap friendshipVector)))))))
+                  (traverse-bitmap id-bitmap (- depth 1) id-bitmap friendshipVector user-id)))))))
 
 (define add-name-to-bmp
   (lambda (bmp name)
@@ -236,3 +242,4 @@
 (bmp-to-namelist (traverse-friends 'Sihan 2))
 (bmp-to-namelist (traverse-friends 'Peter 2))
 ;(bmp-to-namelist (traverse-friends 'Sihan 3))
+;(bmp-to-namelist (traverse-friends 'Minas 6))
