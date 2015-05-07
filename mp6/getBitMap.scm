@@ -21,7 +21,7 @@
   (sllgen:make-string-parser spec grammar))
 
 (define nameTable (make-hash))
-(define index 1)
+(define index 0)
 (define nameVector #())
 (define friendshipVector #())
 (define nameListLength 0)
@@ -119,6 +119,11 @@
             (mapNames (friendship->owner friend))
             (preparseInput (cdr listsOfStrings)))))))
 
+(define extraZeros
+  (lambda (number list)
+    (if (equal? number 0)
+        list
+        (vector-append list (vector 0)))))
 
 (define readFile
  (lambda (path)
@@ -128,7 +133,9 @@
               (preparseInput input)
               (set! nameListLength (vector-length nameVector))
               (parseInput input)
-              (set! friendshipVector (vector-append friendshipVector (vector 0)))))))
+              (print (- (vector-length nameVector) nameListLength ))
+              (set! friendshipVector (extraZeros (- (vector-length nameVector) nameListLength ) friendshipVector))))))
+
 
 
 (define logarithm
@@ -204,6 +211,6 @@
        
 (trace logarithm)
 (readFile "doc-example")
-;(print nameVector)
-;(print friendshipVector)
+(print nameVector)
+(print friendshipVector)
 (bmp-to-namelist (traverse-friends 'Mario 1))
