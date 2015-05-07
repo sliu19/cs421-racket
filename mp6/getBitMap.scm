@@ -195,6 +195,8 @@
       (cond ((null? user-id) (empty-bitmap))
             (else (let ([id-bitmap (vector-ref friendshipVector user-id)])
                   (traverse-bitmap id-bitmap (- depth 1) id-bitmap friendshipVector)))))))
+(define create-blacklist
+  (lambda name-
 
 (define mutual-friends
   (lambda (name1 name2 depth)
