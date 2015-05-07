@@ -21,7 +21,7 @@
   (sllgen:make-string-parser spec grammar))
 
 (define nameTable (make-hash))
-(define index 1)
+(define index 0)
 (define nameVector #())
 (define friendshipVector #())
 (define nameListLength 0)
@@ -177,8 +177,8 @@
 
 (define traverse-bitmap
   (lambda (curr-traversing-bitmap depth-remaining aggregator bitmap-vector)
-    (cond ((equal? depth-remaining 0) aggregator)
-          ((equal? curr-traversing-bitmap 0) aggregator) ; Assumes default bitmap is zero
+    (cond ((equal? depth-remaining 0) (bitwise-ior aggregator curr-traversing-bitmap))
+          ((equal? curr-traversing-bitmap 0) (bitwise-ior aggregator curr-traversing-bitmap)) ; Assumes default bitmap is zero
           (else (let* ([rec-indices (bitmap-get-set-indices curr-traversing-bitmap '())] ; Certainly valid since bitmap != 0
                        [index-to-bitmap (lambda (idx) (vector-ref bitmap-vector idx))] ;; which var
                        [rec-bitmaps (map index-to-bitmap rec-indices)]
@@ -196,6 +196,14 @@
             (else (let ([id-bitmap (vector-ref friendshipVector user-id)])
                   (traverse-bitmap id-bitmap (- depth 1) id-bitmap friendshipVector)))))))
 
+(define mutual-friends
+  (lambda (name1 name2 depth)
+    (let* ([bmp1 (traverse-friends name1 depth)]
+           [bmp2 (traverse-friends name2 depth)]
+           ;[blacklist (create-blacklist 
+           [mutual (bitwise-and bmp1 bmp2)])
+      mutual)))
+
 (define bmp-to-namelist
   (lambda (bmp)
     (let* ([indices (bitmap-get-set-indices bmp '())]
@@ -204,6 +212,7 @@
        
 (trace logarithm)
 (readFile "doc-example")
-;(print nameVector)
-;(print friendshipVector)
-(bmp-to-namelist (traverse-friends 'Mario 1))
+(print nameVector)
+(print friendshipVector)
+(bmp-to-namelist (traverse-friends 'Sihan 2))
+(bmp-to-namelist (traverse-friends 'Minas 2))
